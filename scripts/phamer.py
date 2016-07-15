@@ -26,9 +26,10 @@ import matplotlib.pyplot as plt
 # My stuff
 import kmer
 
+
 def kmeans(data, k, verbose=False):
     '''
-    KMeans clustering wrapper function
+    K-Means clustering wrapper function
     :param data: The data to cluster as a numpy array with datapoints being rows
     :param k: The number of clusters
     :param verbose: Verbose output
@@ -40,14 +41,29 @@ def kmeans(data, k, verbose=False):
         print "K-means clustering (k=%d) silhouette score: %f" % (k, np.mean(ss))
     return assignment
 
-def silhouettes(data, assignment):
 
+def silhouettes(data, assignment):
+    '''
+    This function returns the silhouette values for datapoints given a particular cluster assignment, which are values
+    from -1 to 1 that describe how well the datapoints are assigned to clusters
+    :param data: A numpy array of row vectors specifying the datapoints
+    :param assignment: A list of integers specifying the cluster that each datapoint was assigned to. -1 = not assigned
+    :return: A numpy array of silhouette values corresponding to each datapoint
+    '''
     return silhouette_samples(data, assignment)
 
-def cluster_silhouettes(data, assignment, cluster):
 
+def cluster_silhouettes(data, assignment, cluster):
+    '''
+    This function computes the silhouette values for a single cluster
+    :param data: A numpy array of row vectors specifying the datapoints
+    :param assignment: A list of integers specifying the cluster that each datapoint was assigned to. -1 = not assigne
+    :param cluster: The cluster to calculate silhouette values for
+    :return: A numpy array with silhouette values for each point within the cluster
+    '''
     ss = silhouettes(data, assignment)
     return np.array([ss[i] for i in xrange(len(assignment)) if assignment[i] == cluster])
+
 
 def dbscan(data, eps, min_samples, expected_noise=None, verbose=False):
     '''
@@ -75,6 +91,7 @@ def dbscan(data, eps, min_samples, expected_noise=None, verbose=False):
             sys.stdout.flush()
     return asmt
 
+
 def knn(query, data, labels, k=3):
     '''
     K-Nearest Neighbors wrapper method
@@ -89,25 +106,17 @@ def knn(query, data, labels, k=3):
     r = float(np.count_nonzero(near_labels == m)) / k
     return m
 
-def weighted_knn(query, data, labels, k=3):
-    if len(query.shape) == 1:
-        query = np.array([query])
-    k = 5
-    weights = 'distance'
-    clf = neighbors.KNeighborsClassifier(k, weights=weights)
-    clf.fit(data, labels)
-    Z = clf.predict(query)
-    return int(Z[0])
 
 def get_density(point, data, bandwidth=0.1):
     '''
-    This function retuns the density of the data at the given point, using t-distribution kernel density
+    This function returns the density of the data at the given point, using t-distribution kernel density
     :param point: A numpy array vector specifying a point in space to evaluate the density at
     :param data: A 2D numpy array of points (rows)
     :return: A float representing the density of datapoints at the given point
     '''
     kde = KernelDensity(kernel='gaussian', bandwidth=bandwidth).fit(data)
     return kde.score_samples(np.array([point]))[0]
+
 
 def get_centroids(data, assignment, start=0):
     '''
@@ -124,6 +133,7 @@ def get_centroids(data, assignment, start=0):
         centroids[i, :] = np.mean(data[assignment == i][:], axis=0)
     return centroids
 
+
 def cluster_deviations(data, assignment):
     '''
     A function for getting mean average distance (MAD) from the centroid of a number of clustered data-points
@@ -139,6 +149,7 @@ def cluster_deviations(data, assignment):
         deviations[cluster] = np.mean(distances(centroids[cluster], data[which]))
     return deviations
 
+
 def distances(vector, data):
     '''
     A function for finding the distances from one point to many
@@ -152,6 +163,7 @@ def distances(vector, data):
         exit('Error: Too many vectors passed to phamer.distances. pass a single row vector only')
     return np.linalg.norm(np.repeat(vector, data.shape[0], axis=0) - data, axis=1)
 
+
 def closest_to(point, picks):
     '''
     This function returns one point from many which is closest to another point
@@ -160,6 +172,7 @@ def closest_to(point, picks):
     :return: A numpy array which is the row of the "picks" array that is closest to the "point" vector
     '''
     return picks[np.argmin(distances(point, picks))]
+
 
 def chop(array, chops):
     '''
@@ -178,9 +191,10 @@ def chop(array, chops):
         at += 1 + n
     return chopped
 
+
 def most_likely_prophage(sequence, phage_kmers, assignment=None, verbose=True):
     '''
-    This function finds the 7.5kbp region of a sequence most likely to be a prophage
+    This function finds the 7.5kbp region of a sequence most likely to be a prophage within a sequence
     :param sequence: A string representing the DNA sequence of interest
     :param phage_kmers: A numpy array containing the k-mer counts of
     :param assignment: An optional parameter specifying a clustering assignment of the phage k-mer data-points
@@ -215,6 +229,7 @@ def most_likely_prophage(sequence, phage_kmers, assignment=None, verbose=True):
     stop = start + slides_per_window
 
     return (slide * start, slide * stop)
+
 
 def score_points(points, positive_data, negative_data, method='combo', eps=[0.012,0.012], min_samples=[2,2], verbose=False):
     '''
@@ -281,6 +296,7 @@ def score_points(points, positive_data, negative_data, method='combo', eps=[0.01
         scores = 2 * ((knn_scores - 0.5) + 150 * cluster_scores)
     return np.array(scores)
 
+
 def score_point(point, nearest_positive, nearest_negative):
     '''
     This function scores a point for being near positive and away from negative
@@ -291,6 +307,7 @@ def score_point(point, nearest_positive, nearest_negative):
     '''
     return np.exp(np.linalg.norm(point - nearest_negative) - np.linalg.norm(point - nearest_positive)) - 1
 
+
 def get_contig_id(header):
     '''
     Returns the ID number from a contig header
@@ -300,6 +317,7 @@ def get_contig_id(header):
     parts = header.split('_')
     return int(parts[1 + parts.index('ID')].replace('-circular', ''))
 
+
 def get_bacteria_id(header):
     '''
     This function gets the ID from a bacteria fasta header
@@ -308,6 +326,7 @@ def get_bacteria_id(header):
     '''
     return header.split(' ')[0]
 
+
 def get_phage_id(header):
     '''
     This function gets the genbank id from the header of phage fasta
@@ -315,6 +334,7 @@ def get_phage_id(header):
     :return: The string representation of the id
     '''
     return header.split('|')[3]
+
 
 def get_id(header):
     '''
@@ -329,6 +349,7 @@ def get_id(header):
     else:
         return get_bacteria_id(header)
 
+
 def save_tsne_data(filename, tsne_data, ids, header='tsne output\nid,x,y'):
     '''
     This function saves t-SNE data to file with ids in the first column and x,y values in the second and third
@@ -340,6 +361,7 @@ def save_tsne_data(filename, tsne_data, ids, header='tsne output\nid,x,y'):
     '''
     X = np.hstack((np.array([ids]).transpose(), tsne_data.astype(str)))
     np.savetxt(filename, X, fmt='%s', delimiter=',', header=header)
+
 
 def read_tsne_file(tsne_file):
     '''
@@ -361,6 +383,7 @@ def read_tsne_file(tsne_file):
                 chops = [int(x.strip()) for x in nums.split(',')]
     return ids, points, chops
 
+
 def represents_int(s):
     '''
     This function determines if a string represents an integer
@@ -372,6 +395,7 @@ def represents_int(s):
         return True
     except ValueError:
         return False
+
 
 def make_plots(positive, negative, unknown, filename='tsne_plot_all.png'):
     '''
@@ -391,6 +415,7 @@ def make_plots(positive, negative, unknown, filename='tsne_plot_all.png'):
     plt.grid(True)
     plt.savefig(filename)
 
+
 def generate_summary(args):
     '''
     This makes a summary for the output file
@@ -398,6 +423,7 @@ def generate_summary(args):
     :return: a beautiful summary
     '''
     return args.__str__().replace('Namespace(', '# ').replace(')', '').replace(', ', '\n# ').replace('=', ':\t') + '\n'
+
 
 def read_phamer_output(filename):
     '''
@@ -415,6 +441,7 @@ def read_phamer_output(filename):
                 id = get_contig_id(line.split()[1])
             score_dict[id] = float(line.split()[0])
     return score_dict
+
 
 if __name__ == '__main__':
 
@@ -460,93 +487,92 @@ if __name__ == '__main__':
     method = args.method
     input_kmer_file = args.input_kmer_file
 
-    if True or do_tsne or not tsne_file or not os.path.isfile(tsne_file):
 
-        positive_ids, positive_kmer_count = kmer.read_kmer_file(positive_kmer_file, normalize=True)
-        negative_ids, negative_kmer_count = kmer.read_kmer_file(negative_kmer_file, normalize=True)
+    positive_ids, positive_kmer_count = kmer.read_kmer_file(positive_kmer_file, normalize=True)
+    negative_ids, negative_kmer_count = kmer.read_kmer_file(negative_kmer_file, normalize=True)
 
-        num_positive = positive_kmer_count.shape[0]
-        num_negative = negative_kmer_count.shape[0]
+    num_positive = positive_kmer_count.shape[0]
+    num_negative = negative_kmer_count.shape[0]
 
-        negative_kmer_count = negative_kmer_count[:num_positive]
-        negative_ids = negative_ids[:num_positive]
-        num_negative = num_positive
-
-
-        if os.path.exists(input_kmer_file):
-            if verbose:
-                print "Reading k-mer counts from file: %s ..." % os.path.basename(input_kmer_file),
-                sys.stdout.flush()
-            unknown_ids, unknown_kmer_count = kmer.read_kmer_file(input_kmer_file)
-            num_unknown = len(unknown_ids)
-            which_are_long = [i for i in xrange(num_unknown) if np.sum(unknown_kmer_count[i]) >= length_requirement]
-            unknown_ids = [unknown_ids[i] for i in which_are_long]
-
-        else:
-            # Screening input by length
-            if verbose:
-                print "Screening input by length %.1f kbp..." % (length_requirement / 1000.0),
-                sys.stdout.flush()
-            unknown_ids, unknown_sequences = kmer.read_fasta(input_file)
-            num_unknown = len(unknown_ids)
-            which_are_long = [i for i in xrange(num_unknown) if len(unknown_sequences[i]) >= length_requirement]
-            unknown_ids = [unknown_ids[i] for i in which_are_long]
-            if verbose:
-                print "done."
-
-            # Counting Input
-            if verbose:
-                print "Counting k-mers...",
-                sys.stdout.flush()
-            contig_ids, unknown_kmer_count = kmer.count_file(input_file, kmer_length, normalize=False)
-            if not os.path.isdir(output_dir):
-                os.system('mkdir %s' % output_dir)
-
-            kmer_out_file = os.path.join(output_dir, '%s_%dmers.csv' % (input_file, kmer_length))
-            kmer_header = '%d-mers from %s' % (kmer_length, input_file)
-            kmer.save_counts(unknown_kmer_count, contig_ids, kmer_out_file, args, header=kmer_header)
+    negative_kmer_count = negative_kmer_count[:num_positive]
+    negative_ids = negative_ids[:num_positive]
+    num_negative = num_positive
 
 
-        unknown_kmer_count = kmer.normalize_counts(unknown_kmer_count)
+    if os.path.exists(input_kmer_file):
+        if verbose:
+            print "Reading k-mer counts from file: %s ..." % os.path.basename(input_kmer_file),
+            sys.stdout.flush()
+        unknown_ids, unknown_kmer_count = kmer.read_kmer_file(input_kmer_file)
+        num_unknown = len(unknown_ids)
+        which_are_long = [i for i in xrange(num_unknown) if np.sum(unknown_kmer_count[i]) >= length_requirement]
+        unknown_ids = [unknown_ids[i] for i in which_are_long]
+
+    else:
+        # Screening input by length
+        if verbose:
+            print "Screening input by length %.1f kbp..." % (length_requirement / 1000.0),
+            sys.stdout.flush()
+        unknown_ids, unknown_sequences = kmer.read_fasta(input_file)
+        num_unknown = len(unknown_ids)
+        which_are_long = [i for i in xrange(num_unknown) if len(unknown_sequences[i]) >= length_requirement]
+        unknown_ids = [unknown_ids[i] for i in which_are_long]
         if verbose:
             print "done."
 
-        unknown_kmer_count = unknown_kmer_count[which_are_long]
-
-        num_positive = positive_kmer_count.shape[0]
-        num_negative = negative_kmer_count.shape[0]
-        num_unknown = unknown_kmer_count.shape[0]
-
-        # Scoring Contigs
-        scores = score_points(unknown_kmer_count, positive_kmer_count, negative_kmer_count, method=method, verbose=verbose)
+        # Counting Input
         if verbose:
-            print "done scoring."
+            print "Counting k-mers...",
+            sys.stdout.flush()
+        contig_ids, unknown_kmer_count = kmer.count_file(input_file, kmer_length, normalize=False)
+        if not os.path.isdir(output_dir):
+            os.system('mkdir %s' % output_dir)
 
-        # Summary file generation
-        summary_header = '#Phamer summary and score file for %s from %s\n' % (input_file, call_time)
-        f = open(os.path.join(output_dir, 'summary.txt'), 'w')
-        f.write(summary_header)
-        f.write(generate_summary(args))
-        for score, id in sorted(zip(scores, unknown_ids)):
-            f.write('%.3f\t%s\n' % (score, id))
+        kmer_out_file = os.path.join(output_dir, '%s_%dmers.csv' % (input_file, kmer_length))
+        kmer_header = '%d-mers from %s' % (kmer_length, input_file)
+        kmer.save_counts(unknown_kmer_count, contig_ids, kmer_out_file, args, header=kmer_header)
 
-        # t-SNE
-        if do_tsne and tsne_file:
-            tic = time.time()
-            all_data = np.vstack((unknown_kmer_count, positive_kmer_count, negative_kmer_count))
-            tsne_data = tsne.tsne(all_data, no_dims=2, perplexity=perplexity)
-            del all_data
-            tsne_time = time.time() - tic
-            if verbose:
-                print "t-SNE complete:  %d h %d m %.1f s" % (tsne_time//3600,(tsne_time%3600)//60,tsne_time%60)
 
-            tsne_header = "t-SNE output (perplexity=%.1f)" % perplexity
-            tsne_header += "\nunknown,positive,negative=(%d,%d,%d)\n" % (num_unknown, num_positive, num_negative)
-            tsne_header += generate_summary(args).strip()
-            tsne_header += "id,x,y"
+    unknown_kmer_count = kmer.normalize_counts(unknown_kmer_count)
+    if verbose:
+        print "done."
 
-            ids = np.concatenate((unknown_ids, positive_ids, negative_ids))
-            save_tsne_data(tsne_file, tsne_data, ids, header=tsne_header)
+    unknown_kmer_count = unknown_kmer_count[which_are_long]
+
+    num_positive = positive_kmer_count.shape[0]
+    num_negative = negative_kmer_count.shape[0]
+    num_unknown = unknown_kmer_count.shape[0]
+
+    # Scoring Contigs
+    scores = score_points(unknown_kmer_count, positive_kmer_count, negative_kmer_count, method=method, verbose=verbose)
+    if verbose:
+        print "done scoring."
+
+    # Summary file generation
+    summary_header = '#Phamer summary and score file for %s from %s\n' % (input_file, call_time)
+    f = open(os.path.join(output_dir, 'summary.txt'), 'w')
+    f.write(summary_header)
+    f.write(generate_summary(args))
+    for score, id in sorted(zip(scores, unknown_ids)):
+        f.write('%.3f\t%s\n' % (score, id))
+
+    # t-SNE
+    if do_tsne and tsne_file:
+        tic = time.time()
+        all_data = np.vstack((unknown_kmer_count, positive_kmer_count, negative_kmer_count))
+        tsne_data = tsne.tsne(all_data, no_dims=2, perplexity=perplexity)
+        del all_data
+        tsne_time = time.time() - tic
+        if verbose:
+            print "t-SNE complete:  %d h %d m %.1f s" % (tsne_time//3600,(tsne_time%3600)//60,tsne_time%60)
+
+        tsne_header = "t-SNE output (perplexity=%.1f)" % perplexity
+        tsne_header += "\nunknown,positive,negative=(%d,%d,%d)\n" % (num_unknown, num_positive, num_negative)
+        tsne_header += generate_summary(args).strip()
+        tsne_header += "id,x,y"
+
+        ids = np.concatenate((unknown_ids, positive_ids, negative_ids))
+        save_tsne_data(tsne_file, tsne_data, ids, header=tsne_header)
 
     elif tsne_file and os.path.isfile(tsne_file):
         tsne_data = read_tsne_file(tsne_file)

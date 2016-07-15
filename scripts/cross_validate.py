@@ -16,6 +16,7 @@ from sklearn.metrics import roc_curve, auc
 import matplotlib.pyplot as plt
 from pyqt_fit import kde
 
+
 def make_distributions(positive_scores, negative_scores, file_name='distributions.svg'):
     '''
     This function makes nice looking distribution plots of postiive and negative_data scores
@@ -36,6 +37,7 @@ def make_distributions(positive_scores, negative_scores, file_name='distribution
     plt.legend(loc='best')
     plt.grid(True)
     plt.savefig(file_name)
+
 
 def make_ROC(positive_scores, negative_scores, file_name='xvalidation_ROC.svg'):
     '''
@@ -59,6 +61,7 @@ def make_ROC(positive_scores, negative_scores, file_name='xvalidation_ROC.svg'):
     plt.minorticks_on()
     plt.grid(b=True, which='minor')
 
+
 def predictor_performance(positive_scores, negative_scores):
     '''
     This function calculates the performance of a prediction algorithm
@@ -72,6 +75,7 @@ def predictor_performance(positive_scores, negative_scores):
     roc_auc = auc(fpr, tpr)
 
     return fpr, tpr, roc_auc
+
 
 def cross_validate(positive_data, negative_data, N, method='combo', eps=[0.01, 0.01], min_pts=[2, 2], verbose=False):
     '''
@@ -112,6 +116,7 @@ def cross_validate(positive_data, negative_data, N, method='combo', eps=[0.01, 0
 
     return positive_scores, negative_scores
 
+
 def test_cut_response(directory, N=5, eps=[0.1,0.1], min_pts=[2,2], file_name='cut_response.svg', method='combo', verbose=False):
     '''
     This function tests the effect of sequence cut length on Phamer learning algorithm
@@ -147,6 +152,7 @@ def test_cut_response(directory, N=5, eps=[0.1,0.1], min_pts=[2,2], file_name='c
     plt.savefig(file_name)
     return dict(zip(cuts, aucs))
 
+
 def cross_validate_all(positive_data, negative_data, N, verbose=False,image_filename='combined_ROC.svg', output=''):
     '''
     For validation all learning algorithms
@@ -178,6 +184,7 @@ def cross_validate_all(positive_data, negative_data, N, verbose=False,image_file
     plt.minorticks_on()
     plt.grid(b=True, which='minor')
     plt.savefig(image_filename)
+
 
 if __name__ == '__main__':
 
@@ -218,7 +225,7 @@ if __name__ == '__main__':
     roc_filename = os.path.join(output, 'xvalidation_ROC.svg')
     make_ROC(positive_scores, negative_scores, file_name=roc_filename)
 
-    if cuts and False:
+    if cuts:
         if verbose:
             print "Testing cut response... Directory: %s" % cuts
         cut_filename = os.path.join(output, 'cut_response.svg')

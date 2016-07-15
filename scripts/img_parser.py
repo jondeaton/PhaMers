@@ -7,6 +7,7 @@ import os
 import time
 import argparse
 
+
 class contig():
     '''
     This function is for contigs
@@ -20,6 +21,7 @@ class contig():
 
     def __str__(self):
         return '\n'.join([str(gene) for gene in self.genes.values()])
+
 
 class gene():
     '''
@@ -35,6 +37,7 @@ class gene():
 
     def __str__(self):
         return ', '.join(map(str, (self.contig_id, self.id, self.product, self.phylogeny)))
+
 
 def make_gene_csv(IMG_directory, output_filename, contig_name_map, contig_ids=None, keyword=None, verbose=False):
     '''
@@ -67,6 +70,7 @@ def make_gene_csv(IMG_directory, output_filename, contig_name_map, contig_ids=No
         next_contig = contig_map[contig_id]
         f.write(str(next_contig) + '\n')
 
+
 def parse_cog_file(cog_file, contig_name_map, contig_ids=None):
     '''
     This function parses a cog file and returns a dictionary that maps contig id to congig object
@@ -87,6 +91,7 @@ def parse_cog_file(cog_file, contig_name_map, contig_ids=None):
                 contig_map[contig_id] = the_contig
             the_contig.genes[id] = gene(ga_id=ga_id, contig_id=contig_id, id=id)
     return contig_map
+
 
 def parse_products(products_file, contig_map, contig_name_map, contig_ids=None):
     '''
@@ -113,6 +118,7 @@ def parse_products(products_file, contig_map, contig_name_map, contig_ids=None):
             except KeyError:
                 new_gene = gene(contig_id=contig_id, id=id, product=product)
                 the_contig.genes[id] = new_gene
+
 
 def parse_phylodist(phylodist_file, contig_map, contig_name_map, contig_ids=None, keyword=None):
     '''
@@ -141,6 +147,7 @@ def parse_phylodist(phylodist_file, contig_map, contig_name_map, contig_ids=None
                 new_gene = gene(contig_id=contig_id, id=id, phylogeny=phylogeny)
                 the_contig.genes[id] = new_gene
 
+
 def parse_Ga_string(Ga_string, contig_name_map):
     '''
     This function parses the string in the first column of Integrated Microbial Genomes (IMG) gene prediction files.
@@ -166,6 +173,7 @@ def parse_Ga_string(Ga_string, contig_name_map):
                 pass
     exit("Error parsing: %s" % Ga_string)
 
+
 def gene_csv_header(IMG_directory):
     '''
     This function returns the header for a IMG compilation file
@@ -187,6 +195,7 @@ def gene_csv_header(IMG_directory):
     header += '# contig ID, gene number, product name, phylogeny\n'
     return header
 
+
 def search_for_file(directory, ending):
     '''
     This function returns the path of a file within a directory that has a given ending
@@ -197,7 +206,15 @@ def search_for_file(directory, ending):
     files_in_directory = os.listdir(directory)
     return os.path.join(directory, [file for file in files_in_directory if file.endswith(ending)][0])
 
+
 def string_phylogeny_content(phylogenies):
+    '''
+    This function generates a string representation showing the percentile of the phylogenies provided that
+    have the most common classification, for each phylogenetic depth
+    :param phylogenies: A list of phylogenies, the elements of which are list of phylogenetic classifications (strings)
+    :return: A string that shows the percentage of all phylogenies that are classified with the most common
+    phylogeny for that classification deth.
+    '''
     phylogeny_percentages = phlogeny_percents(phylogenies)
     str_out = ''
     for tup in phylogeny_percentages:
@@ -205,11 +222,16 @@ def string_phylogeny_content(phylogenies):
         str_out += "%.1f%% %s " % (100*ratio, mode)
     return str_out
 
+
 def phlogeny_percents(phylogenies):
     '''
-    This function makes a list of tuples that contain the proportion of phylogenies that are the mode of that classification depth
+    This function makes a list of tuples that contain the proportion of phylogenies that are the mode of
+    that classification depth
     :param phylogenies: A list of phylogenies, each of which are a list of classifications
-    :return: A list of tuples each of which contain the proportion of phylogenic classifications in phylogenies at the depth that are the mode of the phylogenies at that depth, in the first element, and the mode of the phylogenies at the depth in the second element of the tuple. The depth is given by the index of the tuple in the list.
+    :return: A list of tuples each of which contain the proportion of phylogenic classifications in phylogenies at
+    the depth that are the mode of the phylogenies at that depth, in the first element, and the mode of the
+    phylogenies at the depth in the second element of the tuple. The depth is given by the
+    index of the tuple in the list.
     '''
     num_genes = len(phylogenies)
     phylogeny_percentages = []
@@ -226,6 +248,7 @@ def phlogeny_percents(phylogenies):
         phylogeny_percentages.append((ratio, mode))
     return phylogeny_percentages
 
+
 def list_mode(list):
     '''
     This function returns the mode of a list
@@ -233,6 +256,7 @@ def list_mode(list):
     :return: The item which occurs most often in the list
     '''
     return max(set(list), key=list.count)
+
 
 if __name__ == '__main__':
 

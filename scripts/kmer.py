@@ -2,7 +2,10 @@
 '''
 kmers.py
 This script is a python module for counting k-mers in biological sequence data.
-It can also be used from the command line
+It can also be used from the command line on fasta files:
+
+python kmer.py my_sequences.fasta my_sequences_5mers.csv -k 5
+
 '''
 
 import numpy as np
@@ -18,11 +21,12 @@ DNA = 'ATGC'
 RNA = 'AUGC'
 protein = 'RHKDESTNQCUGPAVILMFYW'
 
+
 def count(data, kmer_length, symbols=DNA, normalize=False, verbose=False):
     '''
     K-mer counting function
     :param data: Either a string sequence or a list of strings in which k-mer will be counted
-    :param kmer_length: An integer specifying the length of k-mer to count
+    :param kmer_length: An integer specifying the length of k-mer to count (i.e. The 'k' in 'k-mer')
     :param symbols: The symbols counted as k-mers
     :param normalize: Boolean causing normalization of k-mer count vector by total number of k-mers present
     :return: A numpy array with shape = (num_sequences, num_symbols ^ kmer_length) with each element specifying the
@@ -88,6 +92,7 @@ def count(data, kmer_length, symbols=DNA, normalize=False, verbose=False):
         kmer_count = None
     return kmer_count
 
+
 def sequence_to_integers(sequence, symbols):
     '''
     Replace the characters of a sequence with their lexicographic enumeration id
@@ -103,6 +108,7 @@ def sequence_to_integers(sequence, symbols):
         index += 1
     return sequence
 
+
 def get_index(kmer, symbols):
     '''
     Debugging function used for getting lexicographic indicies of k-mers.
@@ -111,6 +117,7 @@ def get_index(kmer, symbols):
     :return: The lexicographic index of the k-mer
     '''
     return int(sequence_to_integers(kmer, symbols), len(kmer))
+
 
 def normalize_counts(counts):
     '''
@@ -125,6 +132,7 @@ def normalize_counts(counts):
         for i in xrange(counts.shape[0]):
             counts[i, :] /= np.sum(counts[i, :])
     return counts
+
 
 def count_file(input_file, kmer_length, symbols=DNA, normalize=False, verbose=False):
     '''
@@ -153,6 +161,7 @@ def count_file(input_file, kmer_length, symbols=DNA, normalize=False, verbose=Fa
         counts[i, :] = count(str(record.seq), kmer_length, symbols=symbols, normalize=normalize, verbose=verbose)
         i += 1
     return ids, counts
+
 
 def count_directory(directory, kmer_length, identifier='fna',symbols=DNA, sum_file=True, sample=0, verbose=False):
     '''
@@ -193,6 +202,7 @@ def count_directory(directory, kmer_length, identifier='fna',symbols=DNA, sum_fi
 
     return ids, counts
 
+
 def read_fasta(fasta_file):
     '''
     Function for reading the contents of a fasta file
@@ -211,6 +221,7 @@ def read_fasta(fasta_file):
     del records
     return np.array(ids), sequences
 
+
 def get_fasta_ids(fasta_file):
     '''
     This file retrieves only the headers from a fasta file
@@ -228,6 +239,7 @@ def get_fasta_ids(fasta_file):
     del records
     return ids
 
+
 def get_fasta_sequences(fasta_file):
     '''
     This file retrieves the sequences from a fasta file
@@ -243,6 +255,7 @@ def get_fasta_sequences(fasta_file):
     for record in records:
         sequences.append(str(record.seq))
     return sequences
+
 
 def read_kmer_file(kmer_file, normalize=False, id=None, old=False):
     '''
@@ -269,6 +282,7 @@ def read_kmer_file(kmer_file, normalize=False, id=None, old=False):
     else:
         return ids, kmers
 
+
 def read_headers(header_file):
     '''
     A function for reading a headers file
@@ -276,6 +290,7 @@ def read_headers(header_file):
     :return: A list containing all of the headers in that file, in the same order
     '''
     return [line.strip() for line in open(header_file, 'r').readlines() if not line.startswith('#')]
+
 
 def load_counts(kmer_length, location=None, counts_file=None, identifier='fna', normalize=False, symbols=DNA, verbose=False):
     '''
@@ -318,6 +333,7 @@ def load_counts(kmer_length, location=None, counts_file=None, identifier='fna', 
         sys.stdout.flush()
     return ids, counts
 
+
 def save_counts(counts, ids, file_name, args=None, header='k-mer count file', verbose=False):
     '''
     A function for saving a k-mer count array
@@ -336,6 +352,7 @@ def save_counts(counts, ids, file_name, args=None, header='k-mer count file', ve
     X = np.hstack((np.array([ids]).transpose(), counts.astype(int).astype(str)))
     np.savetxt(file_name, X, fmt='%s', delimiter=',', header=header)
 
+
 def combine_kmer_header_files(kmer_file, header_file, new_file):
     '''
     This function is for combining old kmer-count formats into a single file
@@ -349,6 +366,7 @@ def combine_kmer_header_files(kmer_file, header_file, new_file):
     kmers = np.loadtxt(kmer_file, delimiter=',', dtype=int)
     save_counts(kmers, ids, new_file)
 
+
 def get_contig_id(header):
     '''
     Returns the ID number from a contig header
@@ -357,6 +375,7 @@ def get_contig_id(header):
     '''
     parts = header.split('_')
     return int(parts[1 + parts.index('ID')].replace('-circular', ''))
+
 
 def get_bacteria_id(header):
     '''
@@ -371,6 +390,7 @@ def get_bacteria_id(header):
     if is_genbank_id(id):
         return id
 
+
 def get_phage_id(header):
     '''
     This function gets the genbank id from the header of phage fasta
@@ -379,6 +399,7 @@ def get_phage_id(header):
     '''
     return header.split('|')[3].replace('>', '')
 
+
 def is_genbank_id(id):
     '''
     This function decides if a string is a genbank id
@@ -386,6 +407,7 @@ def is_genbank_id(id):
     :return: True if the string represents a genbank id format
     '''
     return not represents_float(id) and id[-2] == '.'
+
 
 def represents_float(s):
     '''
@@ -398,6 +420,7 @@ def represents_float(s):
         return True
     except ValueError:
         return False
+
 
 def get_id(header):
     '''
@@ -412,6 +435,7 @@ def get_id(header):
     else:
         return get_bacteria_id(header)
 
+
 def generate_summary(args):
     '''
     This makes a summary for the output file
@@ -419,6 +443,7 @@ def generate_summary(args):
     :return: a beautiful summary
     '''
     return args.__str__().replace('Namespace(', '# ').replace(')', '').replace(', ', '\n# ').replace('=', ':\t')
+
 
 if __name__ == '__main__':
 

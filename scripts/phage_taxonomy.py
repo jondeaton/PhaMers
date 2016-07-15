@@ -22,6 +22,7 @@ import pylab
 
 phage_genes = 'major capsid protein, portal, terminase large subunit, spike, tail, virion formation or coat'.split(',')
 
+
 def make_pie_plots(lineages, out_dir):
     '''
     This function makes pie charts of the taxonomic lineage classification of all phage
@@ -57,6 +58,7 @@ def make_pie_plots(lineages, out_dir):
 
         pie_image_file = os.path.join(out_dir, 'phage_pie_%s.svg' % titles[lineage_depth-1].lower().split()[0])
         plt.savefig(pie_image_file)
+
 
 def phage_tsne_plot(tsne_data, assignment, lineages):
     '''
@@ -98,6 +100,7 @@ def phage_tsne_plot(tsne_data, assignment, lineages):
     plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), prop={'size': 6}, title="Legend", fontsize=7, ncol=2)
     plt.savefig(os.path.join(out_dir, 'tsne_phage_plot.svg'))
 
+
 def cluster_bar_charts(lineages, assignment):
     '''
     This function makes a series of bar charts that displays the classification distribution of the lineages within
@@ -138,6 +141,7 @@ def cluster_bar_charts(lineages, assignment):
         title=titles[lineage_depth - 1])
         image_filename = 'cluster_homology_%s.svg' % titles[lineage_depth-1].lower().split()[0]
         plt.savefig(os.path.join(out_dir, image_filename))
+
 
 if __name__ == '__main__':
 

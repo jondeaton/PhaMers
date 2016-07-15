@@ -17,6 +17,7 @@ wait_time = 1 / 3.0
 hierarchy = ['Domain', 'Kingdom', 'Phylum', 'Class', 'Order', 'Family', 'Genus', 'Species']
 viral_hierarchy = ['Baltimore', 'Order', 'Family', 'Sub-family', 'Genus']
 
+
 def change_email(email):
     '''
     This function changes the email used to access the NCBI database
@@ -24,6 +25,7 @@ def change_email(email):
     :return: None
     '''
     Entrez.email = email
+
 
 def get_tax_id(gb_id):
     '''
@@ -44,6 +46,7 @@ def get_tax_id(gb_id):
     else:
         return line[line.index(":")+1:-2]
 
+
 def get_taxonomy(tax_id='', gb_id='', wait=True):
     '''
     This function gets the content of a NCBI taxonomy database in xml format
@@ -61,6 +64,7 @@ def get_taxonomy(tax_id='', gb_id='', wait=True):
         return get_taxonomy(tax_id=tax_id)
     else:
         return ''
+
 
 def get_lineage(taxonomy='', tax_id='', gb_id='', wait=True):
     '''
@@ -80,6 +84,7 @@ def get_lineage(taxonomy='', tax_id='', gb_id='', wait=True):
     else:
         return 'lineage not found'
 
+
 def string_lineage(lineage):
     '''
     Returns the string representaton of a lineage list
@@ -87,6 +92,7 @@ def string_lineage(lineage):
     :return: A single string made by joining all of the elements of the list by a semicolon
     '''
     return '; '.join(lineage)
+
 
 def extend_lineages(lineages):
     '''
@@ -99,6 +105,7 @@ def extend_lineages(lineages):
         lineage = lineages[i]
         lineages[i] = np.concatenate((lineage, list(np.repeat(lineage[-1], max_classification - len(lineage)))))
     return lineages
+
 
 def retrieve_lineages(ids, lineage_file, wait=True, verbose=False):
     '''
@@ -131,6 +138,7 @@ def retrieve_lineages(ids, lineage_file, wait=True, verbose=False):
     if verbose:
         print "[Complete]"
 
+
 def read_lineage_file(lineage_file):
     '''
     Reads a lineage file that was created by retrieve_lineages, and returns data as a dictionary
@@ -139,6 +147,7 @@ def read_lineage_file(lineage_file):
     '''
     lines = open(lineage_file, 'r').readlines()[1:]
     return {line.split('\t')[0]: [kind.strip() for kind in line.split('\t')[1].strip().split(';')] for line in lines}
+
 
 def lineage_proportions(lineages, normalize=True):
     '''
@@ -159,6 +168,7 @@ def lineage_proportions(lineages, normalize=True):
             mapping[kind] /= float(num_lineages)
         proportions.append(mapping)
     return proportions
+
 
 def test_population_lineage_differenses(test_lineages, base_lineages, verbose=False):
     '''
@@ -195,6 +205,7 @@ def test_population_lineage_differenses(test_lineages, base_lineages, verbose=Fa
         all_dictionaries.append(dictionary)
 
     return all_dictionaries
+
 
 def find_enriched_classification(test_lineages, base_lineages, depth, verbose=False):
     '''
@@ -234,6 +245,7 @@ def find_enriched_classification(test_lineages, base_lineages, depth, verbose=Fa
 
     return None, None, None
 
+
 def deepest_classification(lineages):
     '''
     This function finds the number of the deepest classification for a set of lineages
@@ -241,6 +253,7 @@ def deepest_classification(lineages):
     :return: An integer representing the number of elements in the longest lineage in the list
     '''
     return max([len(lineage) for lineage in lineages])
+
 
 def make_lineage_file(fasta_file, lineage_file, wait=True, verbose=False):
     '''
@@ -268,6 +281,7 @@ def make_lineage_file(fasta_file, lineage_file, wait=True, verbose=False):
 
     retrieve_lineages(ids, lineage_file, wait=wait, verbose=verbose)
 
+
 def find_orfs(sequence, start_codon='ATG', stop_codons=['TAA', 'TGA', 'TAG'], min_length=60, max_length=1500):
     '''
     This function finds open reading framed (ORFs) a sequence
@@ -289,6 +303,7 @@ def find_orfs(sequence, start_codon='ATG', stop_codons=['TAA', 'TGA', 'TAG'], mi
             orfs.append((start, stop + 3))
     return orfs
 
+
 def find_stop(sequence, start, stop_codons=['TAA', 'TGA', 'TAG'], min_length=60, max_length=1500):
     '''
     Thus function finds the stop codon that comes after a start codon
@@ -304,6 +319,7 @@ def find_stop(sequence, start, stop_codons=['TAA', 'TGA', 'TAG'], min_length=60,
         if codon in stop_codons:
             return start + i
 
+
 def translate(sequence):
     '''
     This function translates a coding sequence into a amino acid sequence by a standard codon table
@@ -311,14 +327,14 @@ def translate(sequence):
     :return: The amino acid sequence represented as a string
     '''
     codon_table = {
-    'ATA':'I', 'ATC':'I', 'ATT':'I', 'ATG':'M', 'ACA':'T', 'ACC':'T', 'ACG':'T', 'ACT':'T',
-    'AAC':'N', 'AAT':'N', 'AAA':'K', 'AAG':'K', 'AGC':'S', 'AGT':'S', 'AGA':'R', 'AGG':'R',
-    'CTA':'L', 'CTC':'L', 'CTG':'L', 'CTT':'L', 'CCA':'P', 'CCC':'P', 'CCG':'P', 'CCT':'P',
-    'CAC':'H', 'CAT':'H', 'CAA':'Q', 'CAG':'Q', 'CGA':'R', 'CGC':'R', 'CGG':'R', 'CGT':'R',
-    'GTA':'V', 'GTC':'V', 'GTG':'V', 'GTT':'V', 'GCA':'A', 'GCC':'A', 'GCG':'A', 'GCT':'A',
-    'GAC':'D', 'GAT':'D', 'GAA':'E', 'GAG':'E', 'GGA':'G', 'GGC':'G', 'GGG':'G', 'GGT':'G',
-    'TCA':'S', 'TCC':'S', 'TCG':'S', 'TCT':'S', 'TTC':'F', 'TTT':'F', 'TTA':'L', 'TTG':'L',
-    'TAC':'Y', 'TAT':'Y', 'TAA':'_', 'TAG':'_', 'TGC':'C', 'TGT':'C', 'TGA':'_', 'TGG':'W',
+    'ATA': 'I', 'ATC': 'I', 'ATT': 'I', 'ATG': 'M', 'ACA': 'T', 'ACC': 'T', 'ACG': 'T', 'ACT': 'T',
+    'AAC': 'N', 'AAT': 'N', 'AAA': 'K', 'AAG': 'K', 'AGC': 'S', 'AGT': 'S', 'AGA': 'R', 'AGG': 'R',
+    'CTA': 'L', 'CTC': 'L', 'CTG': 'L', 'CTT': 'L', 'CCA': 'P', 'CCC': 'P', 'CCG': 'P', 'CCT': 'P',
+    'CAC': 'H', 'CAT': 'H', 'CAA': 'Q', 'CAG': 'Q', 'CGA': 'R', 'CGC': 'R', 'CGG': 'R', 'CGT': 'R',
+    'GTA': 'V', 'GTC': 'V', 'GTG': 'V', 'GTT': 'V', 'GCA': 'A', 'GCC': 'A', 'GCG': 'A', 'GCT': 'A',
+    'GAC': 'D', 'GAT': 'D', 'GAA': 'E', 'GAG': 'E', 'GGA': 'G', 'GGC': 'G', 'GGG': 'G', 'GGT': 'G',
+    'TCA': 'S', 'TCC': 'S', 'TCG': 'S', 'TCT': 'S', 'TTC': 'F', 'TTT': 'F', 'TTA': 'L', 'TTG': 'L',
+    'TAC': 'Y', 'TAT': 'Y', 'TAA': '_', 'TAG': '_', 'TGC': 'C', 'TGT': 'C', 'TGA': '_', 'TGG': 'W',
     }
 
     sequence = sequence.upper().replace('\n', '').replace(' ', '')
@@ -327,6 +343,7 @@ def translate(sequence):
     for i in xrange(len(sequence) // 3):
         peptide += codon_table[sequence[3 * i: 3 * (i + 1)]]
     return peptide
+
 
 if __name__ == '__main__':
 

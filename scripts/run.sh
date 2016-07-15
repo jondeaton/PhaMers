@@ -9,13 +9,13 @@ date
 
 pt=False
 xv=False
-pm=True
+pm=False
 pa=True
 
 bijah=True
 LGB=False
 
-n_fold=5
+n_fold=20
 method="combo"
 
 # Locations
@@ -95,7 +95,7 @@ fi
 if $xv
     then
         echo "====== Cross Validation ======"
-        python $cross_validation -p $phage_kmers -n $bacteria_kmers -N $n_fold -m $method -cuts $cuts_file -v -out $CV_out
+        python $cross_validation -p $phage_kmers -n $bacteria_kmers -N $n_fold -m $method -cuts $cuts_file -v -out $CV_out -a
 fi
 
 # Phamer Scoring (Figure 3)

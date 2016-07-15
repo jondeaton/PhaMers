@@ -52,6 +52,7 @@ class phage():
             top += "%s\n" % gene.__str__()
         return top
 
+
 def lineage_colors(lineages):
     '''
     This function makes a mapping of taxonomic classification to color so that multiple plots can be colored
@@ -67,6 +68,7 @@ def lineage_colors(lineages):
     colors = dc.get_colors(len(diversity))
     color_map = {diversity[i]:colors[i] for i in xrange(len(diversity))}
     return color_map
+
 
 def read_virsorter_file(filename, dataset=''):
     '''
@@ -89,6 +91,7 @@ def read_virsorter_file(filename, dataset=''):
             vs_phage.append(phage(kind, category, dataset, line))
     return vs_phage
 
+
 def get_category_dictionary(virsorter_summary):
     '''
     This function takes a VirSroter summary file and creates a dictionary that maps contig ID to VirSorter category
@@ -106,6 +109,7 @@ def get_category_dictionary(virsorter_summary):
             category_map[id] = category
     return category_map
 
+
 def get_contig_name(header):
     '''
     This function gets the name of the contig, which is the number after "SuperContig_" in the contig header
@@ -118,6 +122,7 @@ def get_contig_name(header):
         return int(parts[1 + parts.index('SuperContig')])
     except:
         print "Couldn't find name from: %s" % header
+
 
 def get_contig_id(header):
     '''
@@ -133,6 +138,7 @@ def get_contig_id(header):
         return header
     return int(parts[1 + parts.index('ID')].replace('-circular', ''))
 
+
 def get_contig_length(header):
     '''
     This function finds the length of a contig given it's header
@@ -142,6 +148,7 @@ def get_contig_length(header):
     header = header.strip().replace('>', '')
     parts = header.split('_')
     return int(parts[1 + parts.index('length')])
+
 
 def get_contig_name_map(contigs_file=None, headers=None):
     '''
@@ -159,6 +166,7 @@ def get_contig_name_map(contigs_file=None, headers=None):
         map[name] = id
     return map
 
+
 def map_id_to_header(contigs_file):
     '''
     This function makes a mapping from Contig ID to contig header
@@ -169,6 +177,7 @@ def map_id_to_header(contigs_file):
     map = {get_contig_id(header): header for header in headers}
     return map
 
+
 def category_name(category):
     '''
     This function returns the qualitative confidence that a phage of a certain category is a phage
@@ -178,6 +187,7 @@ def category_name(category):
     category_names = ['unknown', 'Complete - "pretty sure"', 'Complete - "quite sure"', 'Complete - "not so sure"']
     category_names += ['Prophages - "pretty sure"', 'Prophages - "quite sure"', 'Prophages -"not so sure"']
     return category_names[category]
+
 
 def get_truth_table(phamer_summary, virsorter_summary, threshold=0, verbose=False):
     '''
@@ -211,6 +221,7 @@ def get_truth_table(phamer_summary, virsorter_summary, threshold=0, verbose=Fals
 
     return true_positives, false_positives, false_negatives, true_negatives
 
+
 def get_gene_product_dict(genbank_file, verbose=False):
     '''
     This function finds and returns a mapping of gene name to gene product name from a GenBank file containing only a
@@ -229,6 +240,7 @@ def get_gene_product_dict(genbank_file, verbose=False):
                     print "%s: %s" % (name, product)
                 gene_product_dict[name] = product
     return gene_product_dict
+
 
 def prepare_for_SnapGene(genbank_file, destination, verbose=False):
     '''
@@ -267,6 +279,7 @@ def prepare_for_SnapGene(genbank_file, destination, verbose=False):
         f = open(new_file, 'w')
         f.write(contents)
         f.close()
+
 
 def make_lineage_plot(point, score, phage_kmers, phage_lineages, out_file='lineage_prediction.svg', color_map=None,
                       category=0, id=0, verbose=False):
@@ -333,6 +346,7 @@ def make_lineage_plot(point, score, phage_kmers, phage_lineages, out_file='linea
 
     plt.savefig(out_file)
 
+
 def cluster_taxonomy_pies(phamer_summary, virsorter_summary, phage_lineage_file, phage_kmer_file,
                           contig_kmer_file, destination, verbose=False):
     '''
@@ -374,6 +388,7 @@ def cluster_taxonomy_pies(phamer_summary, virsorter_summary, phage_lineage_file,
         if verbose:
             print "Done. %d of %d" % (i, len(tp))
 
+
 def generate_summary(args):
     '''
     This makes a summary for the output file for combining methods
@@ -381,6 +396,7 @@ def generate_summary(args):
     :return: a beautiful summary
     '''
     return args.__str__().replace('Namespace(', '# ').replace(')', '').replace(', ', '\n# ').replace('=', ':\t') + '\n'
+
 
 def tsne_plot(phamer_summary, virsorter_summary, tsne_file, threshold=0, file_name='comparison_tsne.svg'):
     '''
@@ -422,12 +438,13 @@ def tsne_plot(phamer_summary, virsorter_summary, tsne_file, threshold=0, file_na
         score = phamer_dict[id]
         if id in true_positives or id in false_negatives or score > 1.5:
             x, y = tsne_data[ids.index(id)]
-            plt.text(x, y, str(id), fontsize=5)
+            #plt.text(x, y, str(id), fontsize=5)
 
     plt.legend(fontsize=8, loc='center left', bbox_to_anchor=(0.96, 0.5), title="Legend", fancybox=True)
     plt.grid(True)
     plt.title('t-SNE comparison of Phamer with VirSorter')
     plt.savefig(file_name)
+
 
 def performance_ROC(phamer_summary, virsorter_summary, threshold=0, destination='', verbose=False):
     '''
@@ -445,24 +462,6 @@ def performance_ROC(phamer_summary, virsorter_summary, threshold=0, destination=
     positive_scores = [phamer_dict[id] for id in tp + fn]
     negative_scores = [phamer_dict[id] for id in fp + tn]
     cv.make_ROC(positive_scores, negative_scores, os.path.join(destination, 'compare_roc.svg'))
-
-    # fpr = float(fp) / (fp + tn)
-    # tpr = float(tp) / (fn + tp)
-    # x = np.array([0, fpr, 1])
-    # y = np.array([0, tpr, 1])
-    #
-    # plt.figure()
-    # plt.plot(x, y, 'b-o')
-    # plt.plot([0, 1], [0, 1], 'k--')
-    # plt.text(0.8, 0.20, "%d true positives" % tp, fontsize=10)
-    # plt.text(0.8, 0.15, "%d false positives" % fp, fontsize=10)
-    # plt.text(0.8, 0.10, "%d false negatives" % fn, fontsize=10)
-    # plt.text(0.8, 0.05, "%d true negatives" % tn, fontsize=10)
-    # plt.xlabel('False Positive Rate')
-    # plt.ylabel('True Positive Rate')
-    # plt.title('Phamer Performance vs VirSorter')
-    # plt.grid(True)
-    # plt.savefig(os.path.join(destination, 'compare_roc.svg'))
 
     # Box Plot
     category_dict = get_category_dictionary(virsorter_summary)
@@ -482,6 +481,7 @@ def performance_ROC(phamer_summary, virsorter_summary, threshold=0, destination=
     plt.xlabel('Confidence')
     plt.ylabel('Phamer Score')
     plt.savefig(os.path.join(destination, 'category_vs_phamer.svg'))
+
 
 def query_yes_no(question, default="yes"):
     """Ask a yes/no question via raw_input() and return their answer.
@@ -515,6 +515,7 @@ def query_yes_no(question, default="yes"):
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
 
+
 def preditcion_summary(ids, category_dict, phamer_dict, threshold=0):
     '''
     This function makes a summary for all the phage which were predicted
@@ -546,6 +547,7 @@ def preditcion_summary(ids, category_dict, phamer_dict, threshold=0):
     for category in xrange(1, 7):
         summary += "VirSorter category %d: %d\t(Phamer: %d)\n" % (category, counts[category], phamer_counts[category])
     return summary.strip()
+
 
 def make_overview_csv(header_map, phamer_dict, virsorter_dict, img_dict, output_file='final_summary.csv', dataset=None):
     '''
@@ -582,7 +584,13 @@ def make_overview_csv(header_map, phamer_dict, virsorter_dict, img_dict, output_
             pass
     df.to_csv(output_file, delimiter=', ')
 
+
 def make_img_map(img_summary):
+    '''
+    This function creates a map from cotnig ID to IMG product and phylogeny
+    :param img_summary: The IMG summary file generated by img_parser.py
+    :return: A dictionary that maps contig ID to IMG product and phylogeny
+    '''
     map = {}
     i_map = {}
     for line in [line for line in open(img_summary).readlines() if not line.startswith('#')]:
@@ -694,8 +702,7 @@ if __name__ == '__main__':
 
 
     # Pie charts representing taxonomy of clusters with contigs
-    # if query_yes_no('Make new taxonomy pie charts (long computation)?', default="no"):
-    if True:
+    if query_yes_no('Make new taxonomy pie charts (long computation)?', default="no"):
         if verbose:
             print "Making taxonomy pie charts..."
         cluster_taxonomy_pies(phamer_summary, virsorter_summary, lineage_file, phage_kmer_file, contig_kmer_file,
