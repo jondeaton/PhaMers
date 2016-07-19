@@ -459,6 +459,7 @@ if __name__ == '__main__':
     parser.add_argument('-dt', '--do_tsne', action='store_true', help='Flag to perform t-SNE')
     parser.add_argument('-lin', '--lineage_file', type=str, default='phage_lineages.txt', help='Lineage file for positive sequences')
     parser.add_argument('-k', '--kmer_length', type=int, default=4, help='Length of k-mers analyzed')
+    parser.add_argument('-s', '--strange_kmer', nargs='*', help='Strange k-mers')
     parser.add_argument('-l', '--length_requirement', type=int, default=5000, help='Input sequence length requirement for scoring')
     parser.add_argument('-eps', '--eps', type=float, default=2.1, help='DBSCAN eps parameter')
     parser.add_argument('-mp', '--minPts', type=int, default=2, help='DBSCAN minimum points per cluster parameter')
@@ -473,6 +474,7 @@ if __name__ == '__main__':
     input_file = args.input_file
     output_dir = args.output_dir
     kmer_length = args.kmer_length
+    strange_kmer = args.strange
     length_requirement = args.length_requirement
     positive_file = args.positive_input
     positive_kmer_file = args.positive_kmer_file
@@ -488,15 +490,18 @@ if __name__ == '__main__':
     input_kmer_file = args.input_kmer_file
 
 
-    positive_ids, positive_kmer_count = kmer.read_kmer_file(positive_kmer_file, normalize=True)
-    negative_ids, negative_kmer_count = kmer.read_kmer_file(negative_kmer_file, normalize=True)
+    if None not in [positive_kmer_file, negative_kmer_file] and os.path.exists(positive_kmer_file) and os.path.exists(negative_kmer_file):
+        positive_ids, positive_kmer_count = kmer.read_kmer_file(positive_kmer_file, normalize=True)
+        negative_ids, negative_kmer_count = kmer.read_kmer_file(negative_kmer_file, normalize=True)
 
-    num_positive = positive_kmer_count.shape[0]
-    num_negative = negative_kmer_count.shape[0]
+        num_positive = positive_kmer_count.shape[0]
+        num_negative = negative_kmer_count.shape[0]
 
-    negative_kmer_count = negative_kmer_count[:num_positive]
-    negative_ids = negative_ids[:num_positive]
-    num_negative = num_positive
+        negative_kmer_count = negative_kmer_count[:num_positive]
+        negative_ids = negative_ids[:num_positive]
+        num_negative = num_positive
+    else:
+        positive_ids, positive_kmer_count = kmer.count
 
 
     if os.path.exists(input_kmer_file):

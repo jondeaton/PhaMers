@@ -22,6 +22,55 @@ RNA = 'AUGC'
 protein = 'RHKDESTNQCUGPAVILMFYW'
 
 
+def count_string(sequence, kmer_length, symbols=DNA, normalize=False, verbose=False):
+    '''
+    k-mer counting function
+    :param sequence: The sequence to count k-mers in
+    :param kmer_length: The length of the k-mer to count
+    :param symbols: The symbols to count
+    :param normalize: Normalize count vector by total number of k-mers
+    :param verbose: Verbose output
+    :return: A numpy array with the k-mer counts as integers or floats
+    '''
+    if len(symbols) < 10:
+        # Integer replacement method (may only be used for kmer_length < 10)
+        sequence = sequence_to_integers(sequence, symbols)
+        num_symbols = len(symbols)
+        kmer_count = np.zeros(pow(num_symbols, kmer_length), dtype=(int, float)[normalize])
+        for i in xrange(len(sequence) - kmer_length + 1):
+            integer_kmer = sequence[i:i + kmer_length]
+            if '-' not in integer_kmer:
+                kmer_count[int(integer_kmer, num_symbols)] += 1
+    else:
+        # Mathematical method (for any k)
+        num_symbols = len(symbols)
+        lookup = {char: symbols.index(char) for char in symbols}
+        lookup.update({char.lower(): symbols.index(char) for char in symbols})
+        kmer_count = np.zeros((1, pow(num_symbols, kmer_length)), dtype=(int, float)[normalize])
+
+        reindex = True
+        for i in xrange(len(sequence) - kmer_length + 1):
+            if reindex:
+                try:
+                    kmer = sequence[i:i + kmer_length]
+                    index = sum([lookup[kmer[n]] * pow(num_symbols, kmer_length - n - 1) for n in xrange(kmer_length)])
+                    kmer_count[index] += 1
+                    reindex = False
+                except:
+                    # Still encountering that bad character
+                    pass
+            else:
+                try:
+                    index = (index * num_symbols) % pow(num_symbols, kmer_length) + lookup[
+                        sequence[i + kmer_length - 1]]
+                    kmer_count[index] += 1
+                except:
+                    # Ran into a bad character
+                    reindex = True
+    if normalize and np.sum(kmer_count) > 0:
+        kmer_count = normalize_counts(kmer_count)
+    return kmer_count
+
 def count(data, kmer_length, symbols=DNA, normalize=False, verbose=False):
     '''
     K-mer counting function
@@ -46,47 +95,10 @@ def count(data, kmer_length, symbols=DNA, normalize=False, verbose=False):
                 if verbose:
                     print "Counting %d-mers in %d of %d... %s..." % (kmer_length, i+1, len(data), sequence[:kmer_length]),
                     sys.stdout.flush()
-                kmer_count[i, :] = count(sequence, kmer_length, symbols=symbols, normalize=normalize)
+                kmer_count[i, :] = count_string(sequence, kmer_length, symbols=symbols, normalize=normalize)
                 i += 1
     elif isinstance(data, str):
-        if len(symbols) < 10:
-            # Integer replacement method (for kmer_length < 10)
-            sequence = sequence_to_integers(data, symbols)
-            num_symbols = len(symbols)
-            kmer_count = np.zeros(pow(num_symbols, kmer_length), dtype=(int, float)[normalize])
-            for i in xrange(len(sequence) - kmer_length + 1):
-                integer_kmer = sequence[i:i+kmer_length]
-                if '-' not in integer_kmer:
-                    kmer_count[int(integer_kmer, num_symbols)] += 1
-        else:
-            # Mathematical method (for any k)
-            sequence = data
-            del data
-            num_symbols = len(symbols)
-            lookup = {char:symbols.index(char) for char in symbols}
-            lookup.update({char.lower():symbols.index(char) for char in symbols})
-            kmer_count = np.zeros((1, pow(num_symbols, kmer_length)), dtype=(int, float)[normalize])
-
-            reindex = True
-            for i in xrange(len(sequence) - kmer_length + 1):
-                if reindex:
-                    try:
-                        kmer = sequence[i:i+kmer_length]
-                        index = sum([lookup[kmer[n]] * pow(num_symbols, kmer_length - n - 1) for n in xrange(kmer_length)])
-                        kmer_count[index] += 1
-                        reindex = False
-                    except:
-                        # Still encountering that bad character
-                        pass
-                else:
-                    try:
-                        index = (index*num_symbols) % pow(num_symbols, kmer_length) + lookup[sequence[i+kmer_length-1]]
-                        kmer_count[index] += 1
-                    except:
-                        # Ran into a bad character
-                        reindex = True
-        if normalize and np.sum(kmer_count) > 0:
-            kmer_count = normalize_counts(kmer_count)
+        kmer_count = count_string(data, kmer_length, symbols=symbols, normalize=normalize, verbose=verbose)
     else:
         print "Data was not str or list: %s\n%s ..." % (type(data), data.__str__()[:25])
         kmer_count = None
@@ -201,6 +213,36 @@ def count_directory(directory, kmer_length, identifier='fna',symbols=DNA, sum_fi
         done = (sample and i == sample) or i == len(selected_files)
 
     return ids, counts
+
+
+def kmers(k, symbols=DNA):
+    '''
+    This function returns all of the k-mers for a given k and set of symbols
+    :param k: The length of the k-mer
+    :param symbols: The symbols used for k-mers
+    :return: A list containing strings representing all of the k-mers in lexicographic order
+    '''
+    singles = [symbol for symbol in symbols]
+    return extend_mers(singles, k - 1, symbols)
+
+
+def extend_mers(mers, k, symbols):
+    '''
+    I'm not really sure what this function does... but its required for the kmers function to work
+    :param mers: A growing list of k-mers
+    :param k: The length of the k-mer
+    :param symbols: The symbols to use for kmers
+    :return: Something closer to what you're trying to get at
+    '''
+    if k == 0:
+        return mers
+    extd_mers = []
+    for base in symbols:
+        extension = [''] * len(mers)
+        for i in range(len(mers)):
+            extension[i] = base + mers[i]
+        extd_mers = extd_mers + extension
+    return extend_mers(extd_mers, k - 1, symbols)
 
 
 def read_fasta(fasta_file):
