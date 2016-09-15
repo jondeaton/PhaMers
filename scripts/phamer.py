@@ -1,12 +1,10 @@
 #!/usr/bin/env python
 '''
 Phamer: Phage-finding algorithm that uses k-mer frequency comparison and t-SNE
-Version 1.0
 Jonathan Deaton, Quake Lab, Stanford University, 2016
 '''
 
 import os
-import sys
 import argparse
 import time
 import warnings
@@ -17,28 +15,35 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from sklearn.metrics import silhouette_samples
 from scipy import stats
-from sklearn import neighbors
 from sklearn.neighbors.kde import KernelDensity
 from sklearn import svm
+import matplotlib
+matplotlib.use('Agg')
 warnings.simplefilter('ignore', UserWarning)
 import matplotlib.pyplot as plt
+import logging
 
 # My stuff
 import kmer
 
+__version__ = 1.0
+__author__ = "Jonathan Deaton (jdeaton@stanford.edu)"
+__license__ = "No license"
 
-def kmeans(data, k, verbose=False):
+logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+def kmeans(data, k):
     '''
     K-Means clustering wrapper function
     :param data: The data to cluster as a numpy array with datapoints being rows
     :param k: The number of clusters
-    :param verbose: Verbose output
     :return: A numpy array with elements corresponsing to the cluster assignment of each point
     '''
     assignment = KMeans(n_clusters=k).fit(data).labels_
-    if verbose:
-        ss = silhouette_score(data, assignment)
-        print "K-means clustering (k=%d) silhouette score: %f" % (k, np.mean(ss))
+    ss = silhouette_score(data, assignment)
+    logger.info("K-means clustering (k=%d) silhouette score: %f" % (k, np.mean(ss)))
     return assignment
 
 
@@ -65,7 +70,7 @@ def cluster_silhouettes(data, assignment, cluster):
     return np.array([ss[i] for i in xrange(len(assignment)) if assignment[i] == cluster])
 
 
-def dbscan(data, eps, min_samples, expected_noise=None, verbose=False):
+def dbscan(data, eps, min_samples, expected_noise=None):
     '''
     DBSCAN wrapper function
     :param data: A numpy with rows that are datapoints in a vector space
@@ -73,22 +78,20 @@ def dbscan(data, eps, min_samples, expected_noise=None, verbose=False):
     :param min_samples: The minimum number of samples per cluster
     :param expected_noise: An optional parameter specifying the expected amount of noise in the clustering. Passing a
             value in this argument will cause eps to change until noise is within 5% of the specified value
-    :param verbose: Optional parameter for verbose output
     :return: An array specifying the cluster assignment of each data-point
     '''
     if expected_noise:
-        asmt = dbscan(data, eps, min_samples, verbose=verbose)
+        asmt = dbscan(data, eps, min_samples)
         noise = float(np.count_nonzero(asmt == -1)) / data.shape[0]
         error = noise - expected_noise
         if abs(error) >= 0.05:
             eps *= 1 + (error * (0.5 + (0.2 * np.random.rand())))
-            asmt = dbscan(data, eps, min_samples, expected_noise=expected_noise, verbose=verbose)
+            asmt = dbscan(data, eps, min_samples, expected_noise=expected_noise)
     else:
         asmt = DBSCAN(eps=eps, min_samples=min_samples).fit(data).labels_
-        if verbose:
-            num_unassigned = np.count_nonzero(asmt == -1)
-            print "Clustered, eps:%f, mpts:%d, %d clusters, %d/%d (%.1f%%) noise" % (eps, min_samples,  1+max(asmt), num_unassigned, len(asmt), 100 * float(num_unassigned) / data.shape[0])
-            sys.stdout.flush()
+        num_unassigned = np.count_nonzero(asmt == -1)
+        tup = (eps, min_samples,  1+max(asmt), num_unassigned, len(asmt), 100 * float(num_unassigned) / data.shape[0])
+        logger.info("Clustered, eps:%f, mpts:%d, %d clusters, %d/%d (%.1f%%) noise" % tup)
     return asmt
 
 
@@ -192,13 +195,12 @@ def chop(array, chops):
     return chopped
 
 
-def most_likely_prophage(sequence, phage_kmers, assignment=None, verbose=True):
+def most_likely_prophage(sequence, phage_kmers, assignment=None):
     '''
     This function finds the 7.5kbp region of a sequence most likely to be a prophage within a sequence
     :param sequence: A string representing the DNA sequence of interest
     :param phage_kmers: A numpy array containing the k-mer counts of
     :param assignment: An optional parameter specifying a clustering assignment of the phage k-mer data-points
-    :param verbose: An optional parameter to turn on verbose output
     :return: A tuple containing the start and stop indicies of the most likely prophage region in the sequence
     '''
     window = 7500
@@ -207,7 +209,7 @@ def most_likely_prophage(sequence, phage_kmers, assignment=None, verbose=True):
         return (0, len(sequence))
 
     if assignment is None:
-        assignment = dbscan(phage_kmers, 0.017571, 16, expected_noise=0.35, verbose=verbose)
+        assignment = dbscan(phage_kmers, 0.017571, 16, expected_noise=0.35)
 
     phage_centroids = get_centroids(phage_kmers, assignment)
     kmer_length = int(np.log(phage_kmers.shape[1]) / np.log(4))
@@ -231,7 +233,7 @@ def most_likely_prophage(sequence, phage_kmers, assignment=None, verbose=True):
     return (slide * start, slide * stop)
 
 
-def score_points(points, positive_data, negative_data, method='combo', eps=[0.012,0.012], min_samples=[2,2], verbose=False):
+def score_points(points, positive_data, negative_data, method='combo', eps=[0.012,0.012], min_samples=[2,2]):
     '''
     This function scores a set of points against positive and negative datapoints.
     :param points: The points to score as row vectors in a numpy array
@@ -239,7 +241,6 @@ def score_points(points, positive_data, negative_data, method='combo', eps=[0.01
     :param negative_data: The negative datapoints to use in scoring as row vectors in a numpy array
     :param eps: A list specifying the DBSCAN proximity length for positive and negative in that order
     :param min_samples: A list specifying the DBSCAN minimum points in a cluster for positive and negative in that order
-    :param verbose: Verbose output
     :return: A tuple containing a list of ...
     '''
     num_points = points.shape[0]
@@ -248,12 +249,11 @@ def score_points(points, positive_data, negative_data, method='combo', eps=[0.01
     train = np.vstack((positive_data, negative_data))
     labels = np.append(np.ones(num_positive), np.zeros(num_negative))
 
-    if verbose:
-        print "Scoring %d points with: %s..." % (points.shape[0], method.upper())
+    logger.info("Scoring %d points with: %s..." % (points.shape[0], method.upper()))
 
     if method == 'dbscan':
-        positive_assignment = dbscan(positive_data, eps[0], min_samples[0], verbose=verbose)
-        negative_assignment = dbscan(negative_data, eps[1], min_samples[1], verbose=verbose)
+        positive_assignment = dbscan(positive_data, eps[0], min_samples[0])
+        negative_assignment = dbscan(negative_data, eps[1], min_samples[1])
         if max(positive_assignment) == -1:
             positive_assignment = kmeans(positive_data, 86)
         if max(negative_assignment) == -1:
@@ -263,8 +263,8 @@ def score_points(points, positive_data, negative_data, method='combo', eps=[0.01
         negative_centroids = get_centroids(negative_data, negative_assignment)
         scores = [score_point(point, closest_to(point, positive_centroids), closest_to(point, negative_centroids)) for point in points]
     elif method == 'kmeans':
-        positive_assignment = kmeans(positive_data, 30, verbose=verbose)
-        negative_assignment = kmeans(negative_data, 30, verbose=verbose)
+        positive_assignment = kmeans(positive_data, 30)
+        negative_assignment = kmeans(negative_data, 30)
         positive_centroids = get_centroids(positive_data, positive_assignment)
         negative_centroids = get_centroids(negative_data, negative_assignment)
         scores = [score_point(point, closest_to(point, positive_centroids), closest_to(point, negative_centroids)) for point in points]
@@ -285,8 +285,8 @@ def score_points(points, positive_data, negative_data, method='combo', eps=[0.01
     elif method == 'silhouette':
         positive_appended = np.append(positive_data, points, axis=0)
         negative_appended = np.append(negative_data, points, axis=0)
-        positive_assignment = kmeans(positive_appended, 86, verbose=verbose)
-        negative_assignment = kmeans(negative_appended, 86, verbose=verbose)
+        positive_assignment = kmeans(positive_appended, 86)
+        negative_assignment = kmeans(negative_appended, 86)
         pos_sils = silhouettes(positive_appended, positive_assignment)
         neg_sils = silhouettes(negative_appended, negative_assignment)
         scores = np.array(pos_sils[-num_points:] - neg_sils[-num_points:])
@@ -447,34 +447,46 @@ if __name__ == '__main__':
 
     call_time = time.strftime("%Y-%m-%d %H:%M")
 
-    parser = argparse.ArgumentParser(description='Find phage with k-mers')
-    parser.add_argument('-in', '--input_file', type=str, help='Fasta compilation file of unknown sequences')
-    parser.add_argument('-out', '--output_dir', type=str, default='phamer_out', help='Directory to dump output files')
-    parser.add_argument('-p', '--positive_input', type=str, help='Fasta compilation file of positive sequences')
-    parser.add_argument('-n', '--negative_directory', type=str, help='Dir')
-    parser.add_argument('-i', '--file_identifier', type=str, default='.fna', help='File identifier for fasta files in negative directory')
-    parser.add_argument('-pk', '--positive_kmer_file', type=str, help='positive kmer file')
-    parser.add_argument('-nk', '--negative_kmer_file', type=str, help='negative kmer file')
-    parser.add_argument('-tsne', '--tsne_file', default='tsne_out.csv', type=str, help='Preprocessed t-SNE data file in csv format')
-    parser.add_argument('-dt', '--do_tsne', action='store_true', help='Flag to perform t-SNE')
-    parser.add_argument('-lin', '--lineage_file', type=str, default='phage_lineages.txt', help='Lineage file for positive sequences')
-    parser.add_argument('-k', '--kmer_length', type=int, default=4, help='Length of k-mers analyzed')
-    parser.add_argument('-s', '--strange_kmer', nargs='*', help='Strange k-mers')
-    parser.add_argument('-l', '--length_requirement', type=int, default=5000, help='Input sequence length requirement for scoring')
-    parser.add_argument('-eps', '--eps', type=float, default=2.1, help='DBSCAN eps parameter')
-    parser.add_argument('-mp', '--minPts', type=int, default=2, help='DBSCAN minimum points per cluster parameter')
-    parser.add_argument('-px', '--perplexity', type=float, default=30, help='t-SNE Perplexity')
-    parser.add_argument('-plot', action='store_true', default=False, help='Flag makes t-SNE plots and such')
-    parser.add_argument('-v', '--verbose', action='store_true', default=False, help='Verbose output')
-    parser.add_argument('-pro', '--prophage', action='store_true', default=False, help='Scan contigs for prophage')
-    parser.add_argument('-m', '--method', type=str, default='combo', help='Learning algorithm name')
-    parser.add_argument('-kmers', '--input_kmer_file', type=str, default='', help="Input k-mer file")
+    script_description='This script scores contigs based on k-mer frequency similarity'
+    parser = argparse.ArgumentParser(description=script_description, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    input_group = parser.add_argument_group("Inputs")
+    input_group.add_argument('-in', '--input_file', type=str, help='Fasta compilation file of unknown sequences')
+    input_group.add_argument('-p', '--positive_input', type=str, help='Fasta compilation file of positive sequences')
+    input_group.add_argument('-n', '--negative_directory', type=str, help='Dir')
+    input_group.add_argument('-i', '--file_identifier', type=str, default='.fna', help='File identifier for fasta files in negative directory')
+    input_group.add_argument('-pk', '--positive_kmer_file', type=str, help='positive kmer file')
+    input_group.add_argument('-nk', '--negative_kmer_file', type=str, help='negative kmer file')
+    input_group.add_argument('-kmers', '--input_kmer_file', type=str, default='', help="Input k-mer file")
+    input_group.add_argument('-lin', '--lineage_file', type=str, default='phage_lineages.txt', help='Lineage file for positive sequences')
+    input_group.add_argument('-tsne', '--tsne_file', default='tsne_out.csv', type=str, help='Preprocessed t-SNE data file in csv format')
+
+    output_group = parser.add_argument_group("Outputs")
+    output_group.add_argument('-out', '--output_dir', type=str, default='phamer_out', help='Directory to dump output files')
+
+    options_group = parser.add_argument_group("Options")
+    options_group.add_argument('-k', '--kmer_length', type=int, default=4, help='Length of k-mers analyzed')
+    options_group.add_argument('-l', '--length_requirement', type=int, default=5000, help='Input sequence length requirement for scoring')
+
+    tsne_options_group = parser.add_argument_group("t-SNE Options")
+    tsne_options_group.add_argument('-dt', '--do_tsne', action='store_true', help='Flag to perform t-SNE')
+    tsne_options_group.add_argument('-px', '--perplexity', type=float, default=30, help='t-SNE Perplexity')
+    tsne_options_group.add_argument('-plot', action='store_true', default=False, help='Flag makes t-SNE plots')
+
+    learning_options_group = parser.add_argument_group("Learning Options")
+    learning_options_group.add_argument('-m', '--method', type=str, default='combo', help='Learning algorithm name')
+    learning_options_group.add_argument('-eps', '--eps', type=float, default=2.1, help='DBSCAN eps parameter')
+    learning_options_group.add_argument('-mp', '--minPts', type=int, default=2, help='DBSCAN minimum points per cluster parameter')
+
+    console_options_group = parser.add_argument_group("Console Options")
+    console_options_group.add_argument('-v', '--verbose', action='store_true', default=False, help='Verbose output')
+    console_options_group.add_argument('--debug', action='store_true', default=False, help='Debug console')
+
     args = parser.parse_args()
 
     input_file = args.input_file
     output_dir = args.output_dir
     kmer_length = args.kmer_length
-    strange_kmer = args.strange
     length_requirement = args.length_requirement
     positive_file = args.positive_input
     positive_kmer_file = args.positive_kmer_file
@@ -482,12 +494,20 @@ if __name__ == '__main__':
     negative_kmer_file = args.negative_kmer_file
     tsne_file = os.path.join(output_dir, args.tsne_file)
     perplexity = args.perplexity
-    prophage_scan = args.prophage
     lineage_file = args.lineage_file
     do_tsne = args.do_tsne
-    verbose = args.verbose
     method = args.method
     input_kmer_file = args.input_kmer_file
+
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+        logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+    elif args.verbose:
+        logger.setLevel(logging.INFO)
+        logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+    else:
+        logger.setLevel(logging.WARNING)
+        logging.basicConfig(format='[log][%(levelname)s] - %(message)s')
 
 
     if None not in [positive_kmer_file, negative_kmer_file] and os.path.exists(positive_kmer_file) and os.path.exists(negative_kmer_file):
@@ -505,9 +525,7 @@ if __name__ == '__main__':
 
 
     if os.path.exists(input_kmer_file):
-        if verbose:
-            print "Reading k-mer counts from file: %s ..." % os.path.basename(input_kmer_file),
-            sys.stdout.flush()
+        logger.info("Reading k-mer counts from file: %s ..." % os.path.basename(input_kmer_file))
         unknown_ids, unknown_kmer_count = kmer.read_kmer_file(input_kmer_file)
         num_unknown = len(unknown_ids)
         which_are_long = [i for i in xrange(num_unknown) if np.sum(unknown_kmer_count[i]) >= length_requirement]
@@ -515,20 +533,15 @@ if __name__ == '__main__':
 
     else:
         # Screening input by length
-        if verbose:
-            print "Screening input by length %.1f kbp..." % (length_requirement / 1000.0),
-            sys.stdout.flush()
+        logger.info("Screening input by length %.1f kbp..." % (length_requirement / 1000.0))
         unknown_ids, unknown_sequences = kmer.read_fasta(input_file)
         num_unknown = len(unknown_ids)
         which_are_long = [i for i in xrange(num_unknown) if len(unknown_sequences[i]) >= length_requirement]
         unknown_ids = [unknown_ids[i] for i in which_are_long]
-        if verbose:
-            print "done."
+        logger.info("Done screening by input length.")
 
         # Counting Input
-        if verbose:
-            print "Counting k-mers...",
-            sys.stdout.flush()
+        logger.info("Counting k-mers...")
         contig_ids, unknown_kmer_count = kmer.count_file(input_file, kmer_length, normalize=False)
         if not os.path.isdir(output_dir):
             os.system('mkdir %s' % output_dir)
@@ -539,8 +552,7 @@ if __name__ == '__main__':
 
 
     unknown_kmer_count = kmer.normalize_counts(unknown_kmer_count)
-    if verbose:
-        print "done."
+    logger.info("done counting k-mers")
 
     unknown_kmer_count = unknown_kmer_count[which_are_long]
 
@@ -549,9 +561,8 @@ if __name__ == '__main__':
     num_unknown = unknown_kmer_count.shape[0]
 
     # Scoring Contigs
-    scores = score_points(unknown_kmer_count, positive_kmer_count, negative_kmer_count, method=method, verbose=verbose)
-    if verbose:
-        print "done scoring."
+    scores = score_points(unknown_kmer_count, positive_kmer_count, negative_kmer_count, method=method)
+    logger.info("done scoring.")
 
     # Summary file generation
     summary_header = '#Phamer summary and score file for %s from %s\n' % (input_file, call_time)
@@ -568,8 +579,7 @@ if __name__ == '__main__':
         tsne_data = tsne.tsne(all_data, no_dims=2, perplexity=perplexity)
         del all_data
         tsne_time = time.time() - tic
-        if verbose:
-            print "t-SNE complete:  %d h %d m %.1f s" % (tsne_time//3600,(tsne_time%3600)//60,tsne_time%60)
+        logger.info("t-SNE complete:  %d h %d m %.1f s" % (tsne_time//3600,(tsne_time%3600)//60,tsne_time%60))
 
         tsne_header = "t-SNE output (perplexity=%.1f)" % perplexity
         tsne_header += "\nunknown,positive,negative=(%d,%d,%d)\n" % (num_unknown, num_positive, num_negative)
@@ -584,10 +594,7 @@ if __name__ == '__main__':
 
     # Plotting
     if args.plot:
-        if verbose:
-            print "Creating plots... ",
-            sys.stdout.flush()
+        logger.info("Creating plots...")
         tsne_unknown, tsne_positive, tsne_negative = chop([tsne_data, num_unknown, num_positive, num_negative])
         make_plots(tsne_positive, tsne_negative, tsne_unknown, filename=os.path.join(output_dir, 'tsne_plot_all.svg'))
-        if verbose:
-            print "done."
+        logger.info("Done creating plots.")

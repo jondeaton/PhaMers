@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 '''
+
+analysis.py
+
 This script is for doing analysis of Phamer results and integrating results with VirSroter and IMG outputs
 '''
 
@@ -10,12 +13,16 @@ import argparse
 from Bio import Entrez
 from Bio import SeqIO
 from Bio import BiopythonWarning
+warnings.simplefilter('ignore', BiopythonWarning)
 import numpy as np
+import logging
 import taxonomy as tax
 import img_parser as img
 import phamer
 import kmer
 import distinguishable_colors as dc
+import matplotlib
+matplotlib.use('Agg')
 warnings.simplefilter('ignore', UserWarning)
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -23,7 +30,17 @@ import cross_validate as cv
 
 pd.options.mode.chained_assignment = None
 
-Entrez.email = 'jdeaton@stanford.edu'
+__version__ = 1.0
+__author__ = "Jonathan Deaton (jdeaton@stanford.edu)"
+__license__ = "No license"
+
+logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+# If you use this script enter your email here
+__email__ = "jdeaton@stanford.edu"
+Entrez.email = __email__
 
 class phage():
     '''
@@ -121,7 +138,7 @@ def get_contig_name(header):
     try:
         return int(parts[1 + parts.index('SuperContig')])
     except:
-        print "Couldn't find name from: %s" % header
+        logger.warning("Couldn't find name from: %s" % header)
 
 
 def get_contig_id(header):
@@ -134,7 +151,7 @@ def get_contig_id(header):
     try:
         parts = header.split('_')
     except:
-        print "Invalid contig header: %s" % header
+        logger.warning("Invalid contig header: %s" % header)
         return header
     return int(parts[1 + parts.index('ID')].replace('-circular', ''))
 
@@ -189,14 +206,13 @@ def category_name(category):
     return category_names[category]
 
 
-def get_truth_table(phamer_summary, virsorter_summary, threshold=0, verbose=False):
+def get_truth_table(phamer_summary, virsorter_summary, threshold=0):
     '''
     This function finds the true positives, false positives, false negatives, and true positives for phage
     predictions from phamer and from VirSorter
     :param phamer_summary: The phamer summary file to compare
     :param virsorter_summary: The VirSorter summary file to compare
     :param threshold: The threshold Phamer score to count as a prediction
-    :param verbose: Verbose output
     :return: A tuple of lists of IDs for true positives, false positives, false negatives, and true positives in that order
     '''
     phamer_dict = phamer.read_phamer_output(phamer_summary)
@@ -213,16 +229,15 @@ def get_truth_table(phamer_summary, virsorter_summary, threshold=0, verbose=Fals
     false_negatives = [id for id in phamer_dict.keys() if id in vs_ids and id not in phamer_ids]
     true_negatives = [id for id in phamer_dict.keys() if id not in phamer_ids and id not in vs_ids]
 
-    if verbose:
-        print "%d true positives" % len(true_positives)
-        print "%d false positives" % len(false_positives)
-        print "%d false negatives" % len(false_negatives)
-        print "%d true negatives" % len(true_negatives)
+    logger.info("%d true positives" % len(true_positives))
+    logger.info("%d false positives" % len(false_positives))
+    logger.info("%d false negatives" % len(false_negatives))
+    logger.info("%d true negatives" % len(true_negatives))
 
     return true_positives, false_positives, false_negatives, true_negatives
 
 
-def get_gene_product_dict(genbank_file, verbose=False):
+def get_gene_product_dict(genbank_file):
     '''
     This function finds and returns a mapping of gene name to gene product name from a GenBank file containing only a
     single gene product
@@ -236,13 +251,12 @@ def get_gene_product_dict(genbank_file, verbose=False):
             if feature.type == 'CDS':
                 name = feature.qualifiers['gene'][0]
                 product = feature.qualifiers['product'][0]
-                if verbose:
-                    print "%s: %s" % (name, product)
+                logger.info("%s: %s" % (name, product))
                 gene_product_dict[name] = product
     return gene_product_dict
 
 
-def prepare_for_SnapGene(genbank_file, destination, verbose=False):
+def prepare_for_SnapGene(genbank_file, destination):
     '''
     This function prepares a GenBank file from VirSorter to be viewed by SnapGene so that the product names are
     displayed instead of the gene names. (i.e. 'hypothetical protein' instead of 'gene_1')
@@ -259,8 +273,7 @@ def prepare_for_SnapGene(genbank_file, destination, verbose=False):
 
     for phage_gb in putative_phage_gb:
         contig_header = phage_gb.strip().split('\n')[0].split()[1]
-        if verbose:
-            print 'Contig: %s' % contig_header
+        logger.info('Contig: %s' % contig_header)
         filename = 'VS_SuperContig_%d_ID_%d.gb' % (get_contig_name(contig_header), get_contig_id(contig_header))
         new_file = os.path.join(destination, filename)
         f = open(new_file, 'w')
@@ -282,7 +295,7 @@ def prepare_for_SnapGene(genbank_file, destination, verbose=False):
 
 
 def make_lineage_plot(point, score, phage_kmers, phage_lineages, out_file='lineage_prediction.svg', color_map=None,
-                      category=0, id=0, verbose=False):
+                      category=0, id=0):
     '''
     This function makes several lineage pie charts for a k-mer count datapoint based on nearby phage points
     :param point: The k-mer count datapoint as a numpy array
@@ -293,8 +306,8 @@ def make_lineage_plot(point, score, phage_kmers, phage_lineages, out_file='linea
     '''
     num_phage = phage_kmers.shape[0]
     appended_data = np.append(phage_kmers, np.array([point]), axis=0)
-    asmt = phamer.kmeans(appended_data, 86, verbose=verbose)
-    #asmt = phamer.dbscan(appended_data, eps=0.012, min_samples=5, verbose=verbose)
+    asmt = phamer.kmeans(appended_data, 86)
+    #asmt = phamer.dbscan(appended_data, eps=0.012, min_samples=5)
 
     phage_lineages = tax.extend_lineages(phage_lineages)
 
@@ -310,7 +323,7 @@ def make_lineage_plot(point, score, phage_kmers, phage_lineages, out_file='linea
         kinds = [lineage[lineage_depth] for lineage in cluster_lineages]
         diversity = set(kinds)
 
-        enriched_kind, result, kind_ratio = tax.find_enriched_classification(cluster_lineages, phage_lineages, lineage_depth, verbose=True)
+        enriched_kind, result, kind_ratio = tax.find_enriched_classification(cluster_lineages, phage_lineages, lineage_depth)
         if enriched_kind:
             plt.text(-1, -1.3, "%.1f%% %s p=%.2g" % (100 * kind_ratio, enriched_kind, result[1]))
 
@@ -348,7 +361,7 @@ def make_lineage_plot(point, score, phage_kmers, phage_lineages, out_file='linea
 
 
 def cluster_taxonomy_pies(phamer_summary, virsorter_summary, phage_lineage_file, phage_kmer_file,
-                          contig_kmer_file, destination, verbose=False):
+                          contig_kmer_file, destination):
     '''
     This function takes True Positive prediction from phamer (as compared to VirSorter) makes plots of the
     lineages of nearby point for each, putting thoes files all into one destination directory with filenames that
@@ -380,13 +393,11 @@ def cluster_taxonomy_pies(phamer_summary, virsorter_summary, phage_lineage_file,
         point = contig_dict[id]
         out_file = os.path.join(destination, 'near_lineages_ID_%d.svg' % id)
         score = phamer_dict[id]
-        if verbose:
-            print "Making plot for ID_%d (%s)..." % (id, os.path.basename(out_file))
+        logger.info("Making plot for ID_%d (%s)..." % (id, os.path.basename(out_file)))
         make_lineage_plot(point, score, phage_kmers, lineages, out_file=out_file, color_map=color_map,
-                          category=category_dict[id], id=id, verbose=verbose)
+                          category=category_dict[id], id=id)
         i += 1
-        if verbose:
-            print "Done. %d of %d" % (i, len(tp))
+        logger.info("Done. %d of %d" % (i, len(tp)))
 
 
 def generate_summary(args):
@@ -408,7 +419,7 @@ def tsne_plot(phamer_summary, virsorter_summary, tsne_file, threshold=0, file_na
     :return: None... just makes a cool plot
     '''
     phamer_dict = phamer.read_phamer_output(phamer_summary)
-    true_positives, false_positives, false_negatives, true_negatives = get_truth_table(phamer_summary,virsorter_summary,threshold=threshold, verbose=True)
+    true_positives, false_positives, false_negatives, true_negatives = get_truth_table(phamer_summary,virsorter_summary,threshold=threshold)
 
     ids, tsne_data, chops = phamer.read_tsne_file(tsne_file)
     contig_tsne_ids, phage_tsne_ids, bacteria_tsne_ids = phamer.chop(ids, chops)
@@ -446,18 +457,17 @@ def tsne_plot(phamer_summary, virsorter_summary, tsne_file, threshold=0, file_na
     plt.savefig(file_name)
 
 
-def performance_ROC(phamer_summary, virsorter_summary, threshold=0, destination='', verbose=False):
+def performance_ROC(phamer_summary, virsorter_summary, threshold=0, destination=''):
     '''
     This function makes an ROC curve to compare the preformance between Phamer and VirSorter
     :param phamer_summary: The phamer summary file
     :param virsorter_summary: The VirSorter summary fie
     :param threshold: The threshold above which a Phamer score will count as a putative phage prediction
     :param filename: the name of the file to save the ROC image to
-    :param verbose: Verbose output
     :return: None
     '''
     # Roc Curve
-    tp, fp, fn, tn = get_truth_table(phamer_summary, virsorter_summary, threshold=threshold, verbose=False)
+    tp, fp, fn, tn = get_truth_table(phamer_summary, virsorter_summary, threshold=threshold)
     phamer_dict = phamer.read_phamer_output(phamer_summary)
     positive_scores = [phamer_dict[id] for id in tp + fn]
     negative_scores = [phamer_dict[id] for id in fp + tn]
@@ -616,19 +626,28 @@ def make_img_map(img_summary):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-p', '--phamer_summary', type=str, default='', help='Phamer summary file')
-    parser.add_argument('-vs', '--virsorter', type=str, default='', help='Virsorter output directory')
-    parser.add_argument('-t', '--tsne_file', type=str, default='', help='tsne_output_file')
-    parser.add_argument('-pk', '--phage_kmers', type=str, default='', help='Phage kmer file')
-    parser.add_argument('-ck', '--contig_kmers', type=str, default='', help='File of contig k-mer counts, properly formatted')
-    parser.add_argument('-c', '--contigs_file', type=str, default='', help='Original contigs file')
-    parser.add_argument('-img', '--img_directory', type=str, default='', help='IMG directory of gene prediction files')
-    parser.add_argument('-l', '--lineage_file', type=str, default='', help='Phage lineage file')
-    parser.add_argument('-d', '--destination', type=str, default='', help='Destination of output')
-    parser.add_argument('-e', '--email', type=str, default='jdeaton@stanford.edu', help='Entrez email')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
-    parser.add_argument('-ds', '--dataset', type=str, help='Name of the dataset')
+    script_description='This script performs secondary analysis on Phamer, VirSorter and IMG data'
+    parser = argparse.ArgumentParser(description=script_description, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    input_group = parser.add_argument_group("Inputs")
+    input_group.add_argument('-p', '--phamer_summary', type=str, default='', help='Phamer summary file')
+    input_group.add_argument('-vs', '--virsorter', type=str, default='', help='Virsorter output directory')
+    input_group.add_argument('-t', '--tsne_file', type=str, default='', help='tsne_output_file')
+    input_group.add_argument('-pk', '--phage_kmers', type=str, default='', help='Phage kmer file')
+    input_group.add_argument('-ck', '--contig_kmers', type=str, default='', help='File of contig k-mer counts, properly formatted')
+    input_group.add_argument('-c', '--contigs_file', type=str, default='', help='Original contigs file')
+    input_group.add_argument('-img', '--img_directory', type=str, default='', help='IMG directory of gene prediction files')
+    input_group.add_argument('-l', '--lineage_file', type=str, default='', help='Phage lineage file')
+    input_group.add_argument('-ds', '--dataset', type=str, help='Name of the dataset')
+
+    output_group = parser.add_argument_group("Outputs")
+    output_group.add_argument('-out', '--output', type=str, default='', help='Output directory path')
+
+    parser.add_argument('-e', '--email', type=str, default=__email__, help='Email reference for Entrez')
+
+    console_options_group = parser.add_argument_group("Console Options")
+    console_options_group.add_argument('-v', '--verbose', action='store_true', default=False, help='Verbose output')
+    console_options_group.add_argument('--debug', action='store_true', default=False, help='Debug console')
     args = parser.parse_args()
 
     phamer_summary = os.path.expanduser(args.phamer_summary)
@@ -638,46 +657,52 @@ if __name__ == '__main__':
     lineage_file = os.path.expanduser(args.lineage_file)
     phage_kmer_file = os.path.expanduser(args.phage_kmers)
     contig_kmer_file = os.path.expanduser(args.contig_kmers)
-    destination = os.path.expanduser(args.destination)
+    output = os.path.expanduser(args.output)
     contigs_file = os.path.expanduser(args.contigs_file)
     dataset = args.dataset
-    verbose = args.verbose
 
-    warnings.simplefilter('ignore', BiopythonWarning)
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+        logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+    elif args.verbose:
+        logger.setLevel(logging.INFO)
+        logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+    else:
+        logger.setLevel(logging.WARNING)
+        logging.basicConfig(format='[log][%(levelname)s] - %(message)s')
+
 
     # t-SNE plot of all 3 data types
     virsorter_summary = os.path.join(virsorter_out, 'VIRSorter_global-phage-signal.csv')
     if tsne_file and os.path.isfile(tsne_file):
-        tsne_plot_file = os.path.join(destination, 'comparison_tsne.svg')
+        tsne_plot_file = os.path.join(output, 'comparison_tsne.svg')
         tsne_plot(phamer_summary, virsorter_summary, tsne_file, file_name=tsne_plot_file)
 
     # ROC curve comparing Phamer and VirSroter
-    performance_ROC(phamer_summary, virsorter_summary, threshold=0, verbose=True, destination=destination)
+    performance_ROC(phamer_summary, virsorter_summary, threshold=0, destination=output)
 
     gb_dir = os.path.join(virsorter_out, 'Predicted_viral_sequences')
     gb_files = [os.path.join(gb_dir, filename) for filename in os.listdir(gb_dir) if filename.endswith('.gb')]
 
-    if not os.path.exists(destination):
-        os.makedirs(destination)
+    if not os.path.exists(output):
+        os.makedirs(output)
 
 
     # Preparing files to be viewed with SnapGene
     for file in gb_files:
-        if verbose:
-            print 'Preparing %s for SnapGene...' % os.path.basename(file)
-        prepare_for_SnapGene(file, os.path.join(destination, 'gb_files'))
+        logger.info('Preparing %s for SnapGene...' % os.path.basename(file))
+        prepare_for_SnapGene(file, os.path.join(output, 'gb_files'))
 
     # Analysis of IMG files
     if os.path.isdir(img_dir):
-        img_summary = os.path.join(destination, '%s.summary' % os.path.basename(os.path.relpath(img_dir)))
-        if verbose:
-            print "Analyzing IMG files from %s... Summary file: %s" % (os.path.basename(os.path.relpath(img_dir)), os.path.basename(img_summary))
+        img_summary = os.path.join(output, '%s.summary' % os.path.basename(os.path.relpath(img_dir)))
+        logger.info("Analyzing IMG files from %s... Summary file: %s" % (os.path.basename(os.path.relpath(img_dir)), os.path.basename(img_summary)))
         tp, fp, fn, tn = get_truth_table(phamer_summary, virsorter_summary)
         contig_ids = tp + fn
         contig_name_map = get_contig_name_map(contigs_file=contigs_file)
-        img.make_gene_csv(img_dir, img_summary, contig_name_map, contig_ids=contig_ids, keyword=None, verbose=verbose)
+        img.make_gene_csv(img_dir, img_summary, contig_name_map, contig_ids=contig_ids, keyword=None)
     else:
-        print "Pass a directory to the -img argument that contains a COG, phylogeny, and product file"
+        logger.error("Pass a directory to the -img argument that contains a COG, phylogeny, and product file")
 
     # Generating a prediction summary
     ids, phage_kmers = kmer.read_kmer_file(phage_kmer_file, normalize=True)
@@ -690,22 +715,20 @@ if __name__ == '__main__':
     header_dict = map_id_to_header(contigs_file)
     virsroter_map = {phage.id: phage.category for phage in read_virsorter_file(virsorter_summary)}
     img_map = make_img_map(img_summary)
-    make_overview_csv(header_dict, phamer_dict, virsroter_map, img_map, output_file=os.path.join(destination, 'final_summary.csv'), dataset=dataset)
+    make_overview_csv(header_dict, phamer_dict, virsroter_map, img_map, output_file=os.path.join(output, 'final_summary.csv'), dataset=dataset)
 
-    print "--> Summary of Phamer results:"
-    print "True Positives: %d" % len(tp)
-    print "False Positives: %d" % len(fp)
-    print "False Negatives: %d" % len(fn)
-    print "True Negatives: %d" % len(tn)
-    print "PPV: %.2f%%" % (100.0 * float(len(tp)) / (len(tp) + len(fp)))
-    print preditcion_summary(map(int, contig_ids), category_dict, phamer_dict)
-
+    logger.info("--> Summary of Phamer results:")
+    logger.info("True Positives: %d" % len(tp))
+    logger.info("False Positives: %d" % len(fp))
+    logger.info("False Negatives: %d" % len(fn))
+    logger.info("True Negatives: %d" % len(tn))
+    logger.info("PPV: %.2f%%" % (100.0 * float(len(tp)) / (len(tp) + len(fp))))
+    logger.info(preditcion_summary(map(int, contig_ids), category_dict, phamer_dict))
 
     # Pie charts representing taxonomy of clusters with contigs
     if query_yes_no('Make new taxonomy pie charts (long computation)?', default="no"):
-        if verbose:
-            print "Making taxonomy pie charts..."
+        logger.info("Making taxonomy pie charts...")
         cluster_taxonomy_pies(phamer_summary, virsorter_summary, lineage_file, phage_kmer_file, contig_kmer_file,
-                          os.path.join(destination, 'pie_charts'), verbose=verbose)
+                          os.path.join(output, 'pie_charts'))
     else:
-        print "Post analysis complete"
+        logger.info("Post analysis complete.")

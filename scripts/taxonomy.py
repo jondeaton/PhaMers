@@ -10,13 +10,15 @@ import argparse
 import numpy as np
 from scipy import stats
 
-Entrez.email = 'jdeaton@stanford.edu'
-wait_time = 1 / 3.0
-
 # Just for reference
 hierarchy = ['Domain', 'Kingdom', 'Phylum', 'Class', 'Order', 'Family', 'Genus', 'Species']
 viral_hierarchy = ['Baltimore', 'Order', 'Family', 'Sub-family', 'Genus']
 
+# If you use this script, enter your email here
+__email__ = "jdeaton@stanford.edu"
+
+Entrez.email = __email__
+wait_time = 1 / 3.0
 
 def change_email(email):
     '''
@@ -24,7 +26,8 @@ def change_email(email):
     :param email: The string email to use
     :return: None
     '''
-    Entrez.email = email
+    __email__ = email
+    Entrez.email = __email__
 
 
 def get_tax_id(gb_id):
@@ -347,10 +350,10 @@ def translate(sequence):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser("This script creates a taxonomic lineage file that maps a fasta file with GB IDs to taxonomic lineages")
     parser.add_argument('fasta_file', type=str, help='Fasta file to find lineages from')
     parser.add_argument('lineage_file', type=str, help='Output lineage file')
-    parser.add_argument('-e', '--email', type=str, default='jdeaton@stanford.edu', help='Entrez email')
+    parser.add_argument('-e', '--email', type=str, default=__email__, help='Entrez email')
     parser.add_argument('-w', '--no_wait', action='store_true')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
     args = parser.parse_args()

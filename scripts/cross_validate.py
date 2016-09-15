@@ -10,12 +10,23 @@ import time
 import argparse
 import kmer
 import phamer
-
+import warnings
+import logging
 import numpy as np
 from sklearn.metrics import roc_curve, auc
+import matplotlib
+warnings.simplefilter('ignore', UserWarning)
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from pyqt_fit import kde
 
+__version__ = 1.0
+__author__ = "Jonathan Deaton (jdeaton@stanford.edu)"
+__license__ = "No license"
+
+logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 def make_distributions(positive_scores, negative_scores, file_name='distributions.svg'):
     '''
@@ -77,7 +88,7 @@ def predictor_performance(positive_scores, negative_scores):
     return fpr, tpr, roc_auc
 
 
-def cross_validate(positive_data, negative_data, N, method='combo', eps=[0.01, 0.01], min_pts=[2, 2], verbose=False):
+def cross_validate(positive_data, negative_data, N, method='combo', eps=[0.01, 0.01], min_pts=[2, 2]):
     '''
     This function is for cross validation of the Phamer learnign algorithm
     :param positive_data: The gold standard positive poitns
@@ -85,7 +96,6 @@ def cross_validate(positive_data, negative_data, N, method='combo', eps=[0.01, 0
     :param N: Number of iterations of cross validation
     :param eps: DBSCAN distance threshold
     :param min_pts: DBSCAN minimum points per cluster
-    :param verbose: Verbose output
     :return: The scores for the gold standard positive and negative points
     '''
     positive_asmt = np.arange(positive_data.shape[0]) % N
@@ -99,25 +109,22 @@ def cross_validate(positive_data, negative_data, N, method='combo', eps=[0.01, 0
     tic = time.time()
 
     for n in xrange(N):
-        if verbose:
-            print 'Iteration %d of %d' % (1 + n, N)
+        logger.info('Iteration %d of %d' % (1 + n, N))
         which_positive = positive_asmt == n
         which_negative = negative_asmt == n
 
         data = np.vstack((positive_data[which_positive], negative_data[which_negative]))
-        scores = phamer.score_points(data, positive_data[np.invert(which_positive)], negative_data[np.invert(which_negative)], method=method, eps=eps, min_samples=min_pts, verbose=verbose)
+        scores = phamer.score_points(data, positive_data[np.invert(which_positive)], negative_data[np.invert(which_negative)], method=method, eps=eps, min_samples=min_pts)
 
         positive_scores = np.append(positive_scores, scores[:np.sum(which_positive)])
         negative_scores = np.append(negative_scores, scores[np.sum(which_positive):])
 
     timed = time.time() - tic
-    if verbose:
-        print "N-Fold cross validation done. %dh %dm %ds" % (timed // 3600, (timed % 3600) // 60, timed % 60)
-
+    logger.info("N-Fold cross validation done. %dh %dm %ds" % (timed // 3600, (timed % 3600) // 60, timed % 60))
     return positive_scores, negative_scores
 
 
-def test_cut_response(directory, N=5, eps=[0.1,0.1], min_pts=[2,2], file_name='cut_response.svg', method='combo', verbose=False):
+def test_cut_response(directory, N=5, eps=[0.1,0.1], min_pts=[2,2], file_name='cut_response.svg', method='combo'):
     '''
     This function tests the effect of sequence cut length on Phamer learning algorithm
     :param directory: The directory that contains the k-mer count data for different sized cute
@@ -125,7 +132,6 @@ def test_cut_response(directory, N=5, eps=[0.1,0.1], min_pts=[2,2], file_name='c
     :param eps: DBSCAN distance threshold
     :param min_pts: DBSCAN minimum points per cluster
     :param filename: The filename to save the output image to
-    :param verbose: Verbose output
     :return: A dictionary mapping cut length to ROC AUC values
     '''
     files = [os.path.join(directory, file) for file in os.listdir(directory)]
@@ -138,9 +144,8 @@ def test_cut_response(directory, N=5, eps=[0.1,0.1], min_pts=[2,2], file_name='c
         phage_kmers = kmer.read_kmer_file(phage_file, normalize=True, old=True)[1]
         bacteria_kmers = kmer.read_kmer_file(bacteria_file, normalize=True, old=True)[1]
 
-        if verbose:
-            print "loaded k-mers from: %s and %s" % (os.path.basename(phage_file), os.path.basename(bacteria_file))
-        phage_scores, bacteria_scores = cross_validate(phage_kmers, bacteria_kmers, N, eps=eps, min_pts=min_pts, method=method, verbose=verbose)
+        logger.info("loaded k-mers from: %s and %s" % (os.path.basename(phage_file), os.path.basename(bacteria_file)))
+        phage_scores, bacteria_scores = cross_validate(phage_kmers, bacteria_kmers, N, eps=eps, min_pts=min_pts, method=method)
         auc = predictor_performance(phage_scores, bacteria_scores)[2]
         aucs.append(auc)
 
@@ -153,13 +158,12 @@ def test_cut_response(directory, N=5, eps=[0.1,0.1], min_pts=[2,2], file_name='c
     return dict(zip(cuts, aucs))
 
 
-def cross_validate_all(positive_data, negative_data, N, verbose=False,image_filename='combined_ROC.svg', output=''):
+def cross_validate_all(positive_data, negative_data, N,image_filename='combined_ROC.svg', output=''):
     '''
     For validation all learning algorithms
     :param positive_data: The gold standard positive poitns
     :param negative_data: The gold standard negative points
     :param N: Number of iterations of cross validation
-    :param verbose: Verbose output
     :return: None
     '''
     eps = [0.012, 0.012]
@@ -168,9 +172,8 @@ def cross_validate_all(positive_data, negative_data, N, verbose=False,image_file
     plt.figure(figsize=(9, 7))
 
     for method in methods:
-        if verbose:
-            print "%d-Fold Cross Validation on: %s" % (N, method.upper())
-        positive_scores, negative_scores = cross_validate(positive_data, negative_data, N, method=method, verbose=verbose)
+        logger.info("%d-Fold Cross Validation on: %s" % (N, method.upper()))
+        positive_scores, negative_scores = cross_validate(positive_data, negative_data, N, method=method)
         fpr, tpr, roc_auc = predictor_performance(positive_scores, negative_scores)
         plt.plot(fpr, tpr, label='%s - AUC = %0.3f' % (method.upper(), roc_auc))
 
@@ -188,25 +191,45 @@ def cross_validate_all(positive_data, negative_data, N, verbose=False,image_file
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='Phamer N-fold cross validation')
-    parser.add_argument('-p', '--positive', type=str, help='Positive k-mer counts')
-    parser.add_argument('-n', '--negative', type=str, help='Negative k-mer counts')
-    parser.add_argument('-N', '--N_fold', default=5, type=int, help="Number of iteration in N-fold cross validation")
-    parser.add_argument('-m', '--method', default='combo', type=str, help='Scoring algorithm method')
-    parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
-    parser.add_argument('-a', '--CV_all', action='store_true', help='Flag to cross validate all algorithms')
-    parser.add_argument('-cuts', '--cuts', type=str, help='analyse cut response from directory')
-    parser.add_argument('-out', '--output', type=str, default='', help='Output directory for plots')
+    script_description = "This script is for doing N-fold cross validation of the Phamer scoring algorithm"
+    parser = argparse.ArgumentParser(description=script_description, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    input_group = parser.add_argument_group("Inputs")
+    input_group.add_argument('-p', '--positive', type=str, help='Positive k-mer counts')
+    input_group.add_argument('-n', '--negative', type=str, help='Negative k-mer counts')
+    input_group.add_argument('-cuts', '--cuts', type=str, help='analyse cut response from directory')
+
+    output_group = parser.add_argument_group("Outputs")
+    output_group.add_argument('-out', '--output', type=str, default='', help='Output directory for plots')
+
+    options_group = parser.add_argument_group("Options")
+    options_group.add_argument('-N', '--N_fold', default=5, type=int, help="Number of iteration in N-fold cross validation")
+    options_group.add_argument('-m', '--method', default='combo', type=str, help='Scoring algorithm method')
+    options_group.add_argument('-a', '--CV_all', action='store_true', help='Flag to cross validate all algorithms')
+
+    console_options_group = parser.add_argument_group("Console Options")
+    console_options_group.add_argument('-v', '--verbose', action='store_true', default=False, help='Verbose output')
+    console_options_group.add_argument('--debug', action='store_true', default=False, help='Debug console')
     args = parser.parse_args()
 
     positive_file = args.positive
     negative_file = args.negative
     N = args.N_fold
     method = args.method
-    verbose = args.verbose
     all = args.CV_all
     cuts = args.cuts
     output = args.output
+
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+        logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+    elif args.verbose:
+        logger.setLevel(logging.INFO)
+        logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+    else:
+        logger.setLevel(logging.WARNING)
+        logging.basicConfig(format='[log][%(levelname)s] - %(message)s')
+
 
     positive_data = kmer.read_kmer_file(positive_file)[1]
     negative_data = kmer.read_kmer_file(negative_file)[1]
@@ -214,11 +237,9 @@ if __name__ == '__main__':
     positive_data = kmer.normalize_counts(positive_data)
     negative_data = kmer.normalize_counts(negative_data)
 
-    positive_scores, negative_scores = cross_validate(positive_data, negative_data, N, method=method, verbose=verbose)
+    positive_scores, negative_scores = cross_validate(positive_data, negative_data, N, method=method)
 
-    if verbose:
-        print "Making plots...",
-        sys.stdout.flush()
+    logger.info("Making plots...")
     distribution_file = os.path.join(output, 'distributions.svg')
     make_distributions(positive_scores, negative_scores, file_name=distribution_file)
 
@@ -226,13 +247,11 @@ if __name__ == '__main__':
     make_ROC(positive_scores, negative_scores, file_name=roc_filename)
 
     if cuts:
-        if verbose:
-            print "Testing cut response... Directory: %s" % cuts
+        logger.info("Testing cut response... Directory: %s" % cuts)
         cut_filename = os.path.join(output, 'cut_response.svg')
-        test_cut_response(cuts, N=N, method=method, verbose=verbose, file_name=cut_filename)
+        test_cut_response(cuts, N=N, method=method, file_name=cut_filename)
 
     if all:
-        cross_validate_all(positive_data, negative_data, N, verbose=verbose, output=output)
+        cross_validate_all(positive_data, negative_data, N, output=output)
 
-    if verbose:
-        print "done"
+    logger.info("Cross Validation Complete")

@@ -7,6 +7,7 @@ based on k-mer frequencies, and bar charts of cluster composition based on k-mer
 import os
 import sys
 import time
+import logging
 import numpy as np
 import taxonomy as tax
 import distinguishable_colors as dc
@@ -15,13 +16,19 @@ import tsne
 import argparse
 import phamer
 import warnings
+import matplotlib
+matplotlib.use('Agg')
 warnings.simplefilter('ignore', UserWarning)
 import matplotlib.pyplot as plt
 import pylab
 
+__version__ = 1.0
+__author__ = "Jonathan Deaton (jdeaton@stanford.edu)"
+__license__ = "No license"
 
-phage_genes = 'major capsid protein, portal, terminase large subunit, spike, tail, virion formation or coat'.split(',')
-
+logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 def make_pie_plots(lineages, out_dir):
     '''
@@ -131,7 +138,6 @@ def cluster_bar_charts(lineages, assignment):
             plt.bar(np.arange(num_clusters), fracs, bottom=y_offset, color=kind_colors[kind],
                     label=kind.replace('like', ' like '), edgecolor=kind_colors[kind])
             y_offset += fracs
-        #plt.grid(True)
         plt.xlabel('Cluster')
 
         plt.title(titles[lineage_depth - 1])
@@ -145,22 +151,24 @@ def cluster_bar_charts(lineages, assignment):
 
 if __name__ == '__main__':
 
-    phamer_dir = '/Users/jonpdeaton/Dropbox/Documents/research/phamer'
-    fasta_file = os.path.join(phamer_dir, 'data/all_phage_genomes.fasta')
-    lineage_file = os.path.join(phamer_dir, 'data/phage_lineages.txt')
-    tsne_file = os.path.join(phamer_dir, 'outputs/phage_tsne.csv')
-    kmer_file = os.path.join(phamer_dir, 'data/phage_4mer_counts.csv')
-    headers_file = os.path.join(phamer_dir, 'data/phage_headers.txt')
-    out_dir = os.path.join(phamer_dir, 'plots')
+    script_description = 'Make t-SNE pltos of phage taxonomy'
+    parser = argparse.ArgumentParser(description=script_description)
 
-    parser = argparse.ArgumentParser(description='Make phage taxonomy plots')
-    parser.add_argument('-f', '--fasta_file', default=fasta_file, type=str, help='Phage fasta file')
-    parser.add_argument('-l', '--lineage_file', default=lineage_file, type=str, help='Phage lineage file')
-    parser.add_argument('-pk', '--kmer_file', default=kmer_file, type=str, help='Phage kmer file')
-    parser.add_argument('-t', '--tsne_file', default=tsne_file, type=str, help='tsne file')
-    parser.add_argument('-tsne', action='store_true', help='Flag to do a new t-SNE run')
-    parser.add_argument('-out', '--out', default=out_dir, type=str, help='Output location')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
+    input_group = parser.add_argument_group("Inputs")
+    input_group.add_argument('-f', '--fasta_file', type=str, help='Phage fasta file')
+    input_group.add_argument('-l', '--lineage_file', type=str, help='Phage lineage file')
+    input_group.add_argument('-pk', '--kmer_file', type=str, help='Phage kmer file')
+    input_group.add_argument('-t', '--tsne_file', type=str, help='tsne file')
+
+    output_group = parser.add_argument_group("Outputs")
+    output_group.add_argument('-out', '--out', type=str, help='Output location')
+
+    options_group = parser.add_argument_group("Options")
+    options_group.add_argument('-tsne', action='store_true', help='Flag to do a new t-SNE run')
+
+    console_options_group = parser.add_argument_group("Console Options")
+    console_options_group.add_argument('-v', '--verbose', action='store_true', default=False, help='Verbose output')
+    console_options_group.add_argument('--debug', action='store_true', default=False, help='Debug console')
     args = parser.parse_args()
 
     fasta_file = args.fasta_file
@@ -169,7 +177,17 @@ if __name__ == '__main__':
     tsne_file = args.tsne_file
     out_dir = args.out
     do_tsne = args.tsne
-    verbose = args.verbose
+
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+        logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+    elif args.verbose:
+        logger.setLevel(logging.INFO)
+        logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
+    else:
+        logger.setLevel(logging.WARNING)
+        logging.basicConfig(format='[log][%(levelname)s] - %(message)s')
+
 
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
@@ -180,43 +198,38 @@ if __name__ == '__main__':
     if not do_tsne and os.path.isfile(tsne_file) and os.path.isfile(kmer_file):
         tsne_data = np.loadtxt(tsne_file, delimiter=',')
         phage_ids, kmer_counts = kmer.read_kmer_file(kmer_file, normalize=True)
-        print('Loaded tsne data from %s' % os.path.basename(tsne_file))
+        logger.info('Loaded tsne data from %s' % os.path.basename(tsne_file))
     elif do_tsne:
-        print "Counting k-mers... ",
-        sys.stdout.flush()
+        logger.info("Counting k-mers... ")
         tic = time.time()
-        phage_ids, kmer_counts = kmer.count_file(fasta_file, 4, normalize=True, verbose=verbose)
-        kmer.save_counts(kmer_counts, phage_ids, kmer_out, args=args, verbose=verbose)
-        print "done. %d minutes, %.2f seconds" % ((time.time() - tic) // 60, (time.time() - tic) % 60)
+        phage_ids, kmer_counts = kmer.count_file(fasta_file, 4, normalize=True)
+        kmer.save_counts(kmer_counts, phage_ids, kmer_out, args=args)
+        logger.info("done. %d minutes, %.2f seconds" % ((time.time() - tic) // 60, (time.time() - tic) % 60))
         # t-SNE
         tic = time.time()
         perplexity = 30
         tsne_data = tsne.tsne(kmer_counts, no_dims=2, perplexity=perplexity)
-        print "t-SNE for %d took %.1f seconds" % (len(tsne_data), time.time() - tic)
+        logger.info("t-SNE for %d took %.1f seconds" % (len(tsne_data), time.time() - tic))
         np.savetxt(tsne_out, tsne_data, delimiter=',', header='Phage t-sne output file, perplexity=%1.f' % perplexity)
     else:
-        print 'Not enough data. Do one of the following:'
-        print '1) Supply a CSV file of t-SNE data with a headers file by the flags -t and -ph'
-        print '2) Supply a kmer count file (-pk) and add the flag -tsne to script call'
+        logger.error('Not enough data. Do one of the following:')
+        logger.error('1) Supply a CSV file of t-SNE data with a headers file by the flags -t and -ph')
+        logger.error('2) Supply a kmer count file (-pk) and add the flag -tsne to script call')
         exit(0)
 
-    print "Clustering...",
-    sys.stdout.flush()
-    # assignment = phamer.dbscan(kmer_counts, eps=0.014, min_samples=10, verbose=True)
-    assignment = phamer.dbscan(tsne_data, eps=3.5, min_samples=10, verbose=True)
+    logger.info("Clustering...")
+    # assignment = phamer.dbscan(kmer_counts, eps=0.014, min_samples=10)
+    assignment = phamer.dbscan(tsne_data, eps=3.5, min_samples=10)
 
     lineage_dict = tax.read_lineage_file(lineage_file)
     lineages = [lineage_dict[id] for id in phage_ids]
     lineages = tax.extend_lineages(lineages)
 
-    if verbose:
-        print "Making plots... ",
-        sys.stdout.flush()
-        tic = time.time()
+    logger.info("Making plots... ")
+    tic = time.time()
 
     #make_pie_plots(lineages, out_dir)
     phage_tsne_plot(tsne_data, assignment, lineages)
     cluster_bar_charts(lineages, assignment)
 
-    if verbose:
-        print "done: %d min %d sec" % ((time.time() - tic) // 60, (time.time() - tic) % 60)
+    logger.info("done: %d min %d sec" % ((time.time() - tic) // 60, (time.time() - tic) % 60))
