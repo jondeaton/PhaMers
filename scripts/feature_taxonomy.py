@@ -164,8 +164,6 @@ class plot_maker(object):
         This function makes a t-SNE plot of phage datapoints and colors them based on clustering after t-SNE reduction.
         Also, the plot will circle clusters that are enriched fora  specific taxonomic classification, and will diplay
         the classification that it is enriched for as well as the percentae of the cluster made of
-        :param assignment: The cluster assignment of each point in the t-SNE data
-        :param lineages: A taxonomic classification list of all the points in the t-SNE data
         :return: None... just makes a savage plot
         '''
         num_clusters = max(self.assignment)
@@ -181,8 +179,9 @@ class plot_maker(object):
             cluster_points = self.tsne_data[which]
             cluster_lineages = np.array(self.lineages)[which]
             if self.annotate_kinds:
+                # This part puts arrows and text next to each cluster on the t-SNE plot
                 for depth in [4, 3, 2, 1, 0]:
-                    kind, result, ratio = fileIO.find_enriched_classification(cluster_lineages, self.lineages, depth)
+                    kind, result, ratio = tax.find_enriched_classification(cluster_lineages, self.lineages, depth)
                     if kind and result and ratio:
                         centroid = centroids[cluster]
                         if kind not in used and 'unclassified' not in kind and ratio >= 0.55 and np.linalg.norm(centroid) >= 0:
@@ -213,8 +212,6 @@ class plot_maker(object):
         '''
         This function makes a series of bar charts that displays the classification distribution of the lineages within
         the clusters given by the assignment.
-        :param lineages: A list of taxonomic lineages
-        :param assignment: A list of cluster assignments for each lineage
         :return: None
         '''
         num_clusters = max(self.assignment)
