@@ -50,8 +50,6 @@ def distances(vector, data):
     '''
     if len(vector.shape) == 1:
         vector = np.array([vector])
-    if vector.shape[0] != 1:
-        exit('Error: Too many vectors passed to phamer.distances. pass a single row vector only')
     return np.linalg.norm(np.repeat(vector, data.shape[0], axis=0) - data, axis=1)
 
 
@@ -144,27 +142,18 @@ def kmeans(data, k):
     return assignment
 
 
-def dbscan(data, eps, min_samples, expected_noise=None):
+def dbscan(data, eps, min_samples):
     '''
     DBSCAN wrapper function
     :param data: A numpy with rows that are data-points in a vector space
     :param eps: A float specifying the maximum distance that a point can be away from a cluster to be included
     :param min_samples: The minimum number of samples per cluster
-    :param expected_noise: An optional parameter specifying the expected amount of noise in the clustering. Passing a
-            value in this argument will cause eps to change until noise is within 5% of the specified value
     :return: An array specifying the cluster assignment of each data-point
     '''
-    if expected_noise:
-        # this part of this function is dumb and really shouldn't be used ever
-        asmt = dbscan(data, eps, min_samples)
-        noise = float(np.count_nonzero(asmt == -1)) / data.shape[0]
-        logger.debug("Noise: %f" % noise)
-        error = noise - expected_noise
-        if abs(error) >= 0.05:
-            eps *= 1 + (error * (0.5 + (0.2 * np.random.rand())))
-            asmt = dbscan(data, eps, min_samples, expected_noise=expected_noise)
-    else:
-        asmt = DBSCAN(eps=eps, min_samples=min_samples).fit(data).labels_
+    asmt = DBSCAN(eps=eps, min_samples=min_samples).fit(data).labels_
+    num_clusters = 1 + max(asmt)
+    pct_unassigned = 100.0 * np.sum(asmt == -1) / float(len(asmt))
+    logger.debug('%d positive clusters, %.1f%% unassigned' % (num_clusters, pct_unassigned))
     return asmt
 
 
