@@ -17,7 +17,6 @@ import random
 from Bio import SeqIO
 import logging
 
-
 __version__ = 1.0
 __author__ = "Jonathan Deaton (jdeaton@stanford.edu)"
 __license__ = "No license"
@@ -305,7 +304,7 @@ def get_fasta_sequences(fasta_file):
     return sequences
 
 
-def read_kmer_file(kmer_file, normalize=False, id=None, old=False):
+def load_feature_file(kmer_file, normalize=False, id=None, old=False):
     '''
     A function for reading a k-mer file
     :param kmer_file: The file name of the k-mer file, the file should be in a csv format
@@ -342,7 +341,7 @@ def read_headers(header_file):
 
 def load_counts(kmer_length, location=None, counts_file=None, identifier='fna', normalize=False, symbols=DNA):
     '''
-    This file is for loading hdeaders and k-mer counts from either a directory containing fasta files, a single fasta
+    This file is for loading headers and k-mer counts from either a directory containing fasta files, a single fasta
     file, or a pre-counted headers and k-mer count file. This funciton will first check for pre-counted files and will
     then check to see if the "location" is a directory or a file to decide how to count it
     :param kmer_length: The k-mer length to count
@@ -350,13 +349,12 @@ def load_counts(kmer_length, location=None, counts_file=None, identifier='fna', 
     :param headers: The filename of the headers file
     :param counts: The filename of the k-mer count file
     :param symbols: Symbols to use for counting
-    :param verbose: Verbose output
     :return: A tuple containing a list of headers, and list of k-mer coutns as a numpy array, in that order
     '''
     if counts_file and os.path.isfile(counts_file):
         logger.info("Loading %d-mers from %s..." % (kmer_length, os.path.basename(counts_file)))
         tic = time.time()
-        ids, counts = read_kmer_file(counts_file, normalize=normalize)
+        ids, counts = load_feature_file(counts_file, normalize=normalize)
     elif location and os.path.isfile(location):
         logger.info("Counting %d-mers in %s..." % (kmer_length, os.path.basename(location)))
         tic = time.time()
@@ -372,7 +370,6 @@ def load_counts(kmer_length, location=None, counts_file=None, identifier='fna', 
     run_time = time.time() - tic
     logger.info("done. %dhr %dmin %.1fsec" % (run_time // 3600, (run_time % 3600) // 60, run_time % 60))
     return ids, counts
-
 
 def save_counts(counts, ids, file_name, args=None, header='k-mer count file'):
     '''
@@ -530,7 +527,7 @@ if __name__ == '__main__':
         ids, kmers = count_directory(input, kmer_length, symbols=symbols, identifier=file_identifier, sample=sample)
     else:
         logger.error("%d was not an acceptable file or directory" % input)
-        exit()
+        exit(1)
 
     save_counts(kmers, ids, output, args=args)
 
