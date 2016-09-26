@@ -6,25 +6,23 @@ Jonathan Deaton, Quake Lab, Stanford University, 2016
 
 import os
 import argparse
-import time
 import warnings
 import numpy as np
-import tsne
-from sklearn.cluster import DBSCAN
-from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
-from sklearn.metrics import silhouette_samples
-from scipy import stats
-from sklearn.neighbors.kde import KernelDensity
-from sklearn import svm
 import matplotlib
-matplotlib.use('Agg')
+try:
+    os.environ["DISPLAY"]
+except KeyError:
+    matplotlib.use('Agg')
 warnings.simplefilter('ignore', UserWarning)
 import matplotlib.pyplot as plt
 import logging
+from sklearn.manifold import TSNE
 
 # My stuff
 import kmer
+import learning
+import basic
+import fileIO
 
 __version__ = 1.0
 __author__ = "Jonathan Deaton (jdeaton@stanford.edu)"
@@ -34,470 +32,475 @@ logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(messa
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-def kmeans(data, k):
-    '''
-    K-Means clustering wrapper function
-    :param data: The data to cluster as a numpy array with datapoints being rows
-    :param k: The number of clusters
-    :return: A numpy array with elements corresponsing to the cluster assignment of each point
-    '''
-    assignment = KMeans(n_clusters=k).fit(data).labels_
-    ss = silhouette_score(data, assignment)
-    logger.info("K-means clustering (k=%d) silhouette score: %f" % (k, np.mean(ss)))
-    return assignment
 
+class phamer_scorer(object):
 
-def silhouettes(data, assignment):
-    '''
-    This function returns the silhouette values for datapoints given a particular cluster assignment, which are values
-    from -1 to 1 that describe how well the datapoints are assigned to clusters
-    :param data: A numpy array of row vectors specifying the datapoints
-    :param assignment: A list of integers specifying the cluster that each datapoint was assigned to. -1 = not assigned
-    :return: A numpy array of silhouette values corresponding to each datapoint
-    '''
-    return silhouette_samples(data, assignment)
+    def __init__(self):
 
+        self.input_directory = None
+        self.features_file = None
+        self.fasta_file = None
 
-def cluster_silhouettes(data, assignment, cluster):
-    '''
-    This function computes the silhouette values for a single cluster
-    :param data: A numpy array of row vectors specifying the datapoints
-    :param assignment: A list of integers specifying the cluster that each datapoint was assigned to. -1 = not assigne
-    :param cluster: The cluster to calculate silhouette values for
-    :return: A numpy array with silhouette values for each point within the cluster
-    '''
-    ss = silhouettes(data, assignment)
-    return np.array([ss[i] for i in xrange(len(assignment)) if assignment[i] == cluster])
+        self.data_directory = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+        self.positive_fasta = None
+        self.negative_fasta = None
+        self.positive_features_file = None
+        self.negative_features_file = None
+        self.find_data_files()
 
+        self.output_directory = None
 
-def dbscan(data, eps, min_samples, expected_noise=None):
-    '''
-    DBSCAN wrapper function
-    :param data: A numpy with rows that are datapoints in a vector space
-    :param eps: A float specifying the maximum distance that a point can be away from a cluster to be included
-    :param min_samples: The minimum number of samples per cluster
-    :param expected_noise: An optional parameter specifying the expected amount of noise in the clustering. Passing a
-            value in this argument will cause eps to change until noise is within 5% of the specified value
-    :return: An array specifying the cluster assignment of each data-point
-    '''
-    if expected_noise:
-        asmt = dbscan(data, eps, min_samples)
-        noise = float(np.count_nonzero(asmt == -1)) / data.shape[0]
-        error = noise - expected_noise
-        if abs(error) >= 0.05:
-            eps *= 1 + (error * (0.5 + (0.2 * np.random.rand())))
-            asmt = dbscan(data, eps, min_samples, expected_noise=expected_noise)
-    else:
-        asmt = DBSCAN(eps=eps, min_samples=min_samples).fit(data).labels_
-        num_unassigned = np.count_nonzero(asmt == -1)
-        tup = (eps, min_samples,  1+max(asmt), num_unassigned, len(asmt), 100 * float(num_unassigned) / data.shape[0])
-        logger.info("Clustered, eps:%f, mpts:%d, %d clusters, %d/%d (%.1f%%) noise" % tup)
-    return asmt
+        self.data_ids = None
+        self.data_points = None
+        self.positive_ids = None
+        self.positive_data = None
+        self.negative_ids = None
+        self.negative_data = None
 
+        self.tsne_data = None
 
-def knn(query, data, labels, k=3):
-    '''
-    K-Nearest Neighbors wrapper method
-    :param query: The point to search a label for as a numpy array
-    :param data: The data to compare the query to as a numpy array where rows are points
-    :param labels: The labels of each point in the data array
-    :param k: Number of nearest neighbors to consider
-    :return: The guessed classification
-    '''
-    near_labels = labels[np.argsort(distances(query, data))[:k]]
-    m = int(stats.mode(near_labels)[0])
-    r = float(np.count_nonzero(near_labels == m)) / k
-    return m
+        self.length_requirement = None
 
+        self.scoring_method = 'combo'
+        self.all_scoring_methods = ['dbscan', 'kmeans', 'knn', 'svm', 'density', 'silhouette', 'combo']
+        scoring_functions = [self.dbscan_score_points, self.kmeans_score_points, self.knn_score_points,
+                             self.svm_score_points, self.density_score_points, self.silhouette_score_points,
+                             self.combo_score_points]
+        self.method_function_map = dict(zip(self.all_scoring_methods, scoring_functions))
 
-def get_density(point, data, bandwidth=0.1):
-    '''
-    This function returns the density of the data at the given point, using t-distribution kernel density
-    :param point: A numpy array vector specifying a point in space to evaluate the density at
-    :param data: A 2D numpy array of points (rows)
-    :return: A float representing the density of datapoints at the given point
-    '''
-    kde = KernelDensity(kernel='gaussian', bandwidth=bandwidth).fit(data)
-    return kde.score_samples(np.array([point]))[0]
+        self.k_clusters = 86
+        self.k_clusters_positive = 86
+        self.k_clusters_negative = 20
+        self.positive_bandwidth = 0.005
+        self.negative_bandwidth = 0.01
+        self.positive_eps = 2
+        self.negative_eps = 2
+        self.positive_min_samples = 2
+        self.negative_min_samples = 2
+        self.eps = [self.positive_eps, self.negative_eps]
+        self.min_samples= [self.positive_min_samples, self.negative_min_samples]
+        self.tsne_figsize = (30, 24)
 
+    def load_data(self):
+        '''
+        This function loads the relevant data into a phamer_scorer object
+        :param args: An argparse parsed arguments object from this script
+        :return: None. scorer object is modified in place
+        '''
+        # loading reference data
+        if self.positive_features and os.path.exists(self.positive_features):
+            logger.info("Reading positive features from: %s" % os.path.basename(self.positive_features))
+            scorer.positive_ids, scorer.positive_data = kmer.read_feature_file(self.positive_features, normalize=True)
+        elif self.positive_fasta and os.path.exists(self.positive_fasta):
+            logger.info("Counting positive k-mers from: %s" % os.path.basename(self.positive_fasta))
+            scorer.positive_ids, scorer.positive_data = kmer.count(self.positive_fasta)
 
-def get_centroids(data, assignment, start=0):
-    '''
-    A function for getting the centroids of clustered data-points
-    :param data: The data-points as rows in a 2 dimensional numpy array
-    :param assignment: A numpy array containing the cluster assignments  0 - num_centroids
-    :return: A numpy array with rows being the centroid points for each cluster of data-points
-    '''
-    num_centroids = max(assignment)
-    if num_centroids == -1:
-        exit('Could not get centroids as data was not clustered. Exiting.')
-    centroids = np.zeros((num_centroids, data.shape[1]))
-    for i in xrange(start, num_centroids):
-        centroids[i, :] = np.mean(data[assignment == i][:], axis=0)
-    return centroids
+        if self.negative_features and os.path.exists(self.negative_features):
+            logger.info("Reading negative features from: %s" % os.path.basename(self.negative_features))
+            scorer.negative_ids, scorer.negative_data = kmer.read_feature_file(self.positive_features, normalize=True)
+        elif self.negative_fasta and os.path.exists(self.negative_fasta):
+            logger.info("Counting negative k-mers from: %s" % os.path.basename(self.negative_fasta))
+            scorer.negative_ids, scorer.negative_data = kmer.count(self.negative_fasta)
 
+        if args.equalize_reference:
+            scorer.equalize_reference_data()
 
-def cluster_deviations(data, assignment):
-    '''
-    A function for getting mean average distance (MAD) from the centroid of a number of clustered data-points
-    :param data: The data-points in a 2 dimensional numpy array
-    :param assignment: A clustering assignment array for each of the datapoints
-    :return: A numpy array containing the MAD for the points from each cluster
-    '''
-    num_clusters = max(assignment)
-    centroids = get_centroids(data, assignment)
-    deviations = np.zeros(num_clusters)
-    for cluster in xrange(num_clusters):
-        which = [i for i in xrange(data.shape[0]) if assignment[i] == cluster]
-        deviations[cluster] = np.mean(distances(centroids[cluster], data[which]))
-    return deviations
+        scorer.features_file, scorer.fasta_file = scorer.find_input_files(args)
+        # Loading input data
+        if os.path.exists(self.features_file):
+            logger.info("Reading features from file: %s ..." % os.path.basename(args.features_file))
+            scorer.data_ids, scorer.data_points = kmer.read_kmer_file(args.features_file)
+        elif os.path.exists(args.fasta):
+            logger.info("Calculating features of: %s" % os.path.basename(args.fasta))
+            scorer.data_ids, scorer.data_points = kmer.count_file(args.fasta, args.k, normalize=False)
+            features_file = "{base}_features.csv".format(base=os.path.splitext(args.fasta)[0])
+            logger.info("Saving features to {file}...".format(file=features_file))
+            fileIO.save_counts(scorer.data_points, scorer.data_ids, features_file,args=args)
 
+        kmer.normalize_counts(scorer.data_points, inplace=True)
 
-def distances(vector, data):
-    '''
-    A function for finding the distances from one point to many
-    :param vector: A numpy array specifying the point in space to find distances from.
-    :param data: A list of points in a numpy array to find distances to
-    :return: A numpy array with each element being the distance from the vector to the datapoints
-    '''
-    if len(vector.shape) == 1:
-        vector = np.array([vector])
-    if vector.shape[0] != 1:
-        exit('Error: Too many vectors passed to phamer.distances. pass a single row vector only')
-    return np.linalg.norm(np.repeat(vector, data.shape[0], axis=0) - data, axis=1)
+        if args.length_requirement:
+            logger.info("Screening input by length: %d bp..." % args.length_requirement)
+            scorer.screen_by_length(args.fasta, args.length_requirement)
 
+    def screen_by_length(self, fasta_file, length_requirement):
+        '''
+        This function screens input data by total length
+        :param length_requirement:
+        :return:
+        '''
+        self.length_requirement = length_requirement
+        unknown_ids, unknown_sequences = kmer.read_fasta(args.fasta)
+        long_ids = [unknown_ids[i] for i in xrange(len(unknown_ids)) if len(unknown_sequences) >= self.length_requirement]
+        self.data_points = self.data_points[np.in1d(self.data_ids, long_ids)]
+        self.data_ids = np.array(long_ids)
 
-def closest_to(point, picks):
-    '''
-    This function returns one point from many which is closest to another point
-    :param point: A numpy array specifying the point of interest to compare proximity of all other points
-    :param picks: A numpy array with rows specifying other points to pick the closest from
-    :return: A numpy array which is the row of the "picks" array that is closest to the "point" vector
-    '''
-    return picks[np.argmin(distances(point, picks))]
+    def equalize_reference_data(self):
+        '''
+        This function ensures that there are the same number of negative and positive data poitns
+        :return: None
+        '''
+        num_positive = self.positive_data.shape[0]
+        num_negative = self.negative_data.shape[0]
+        num_ref = min(num_positive, num_negative)
+        logger.debug("Equalizing reference data to: %d data-points" % num_ref)
+        self.positive_data[:, :num_ref]
+        self.negative_data[:, :num_ref]
+        self.positive_ids[:num_ref]
+        self.negative_ids[:num_ref]
+        self.num_positive = num_ref
+        self.num_negative = num_ref
 
+    def score_points(self):
+        '''
+        This function scores a set of points against positive and negative data-points.
+        :return: A list of scores as a numpy array
+        '''
+        # Setting up some data
+        self.num_points = self.data_points.shape[0]
+        self.num_positive = self.positive_data.shape[0]
+        self.num_negative = self.negative_data.shape[0]
+        self.train = np.vstack((self.positive_data, self.negative_data))
+        self.labels = np.append(np.ones(self.num_positive), np.zeros(self.num_negative))
 
-def chop(array, chops):
-    '''
-    This function is for separating the rows of a numpy array
-    i.e. chop(X, [10, 15]) will return a list in which the first element is a numpy array containing the first 10 rows of X,
-    and the second element is a numpy array containing next 15 rows of X.
-    :param array: The array to chop up
-    :param chops: A list of integers to chop the array into
-    :return: A list of numpy arrays split as described previously
-    '''
-    chopped = []
-    array = np.array(array)
-    at = 0
-    for n in chops:
-        chopped.append(array[at:at+n])
-        at += 1 + n
-    return chopped
+        # decidign which scoring function to use
+        scoring_function = self.method_function_map[self.scoring_method]
 
+        # actually scoring points
+        logger.debug("Scoring %d points. Method: %s ..." % (self.data_points.shape[0], self.scoring_method))
+        return np.array(scoring_function())
 
-def most_likely_prophage(sequence, phage_kmers, assignment=None):
-    '''
-    This function finds the 7.5kbp region of a sequence most likely to be a prophage within a sequence
-    :param sequence: A string representing the DNA sequence of interest
-    :param phage_kmers: A numpy array containing the k-mer counts of
-    :param assignment: An optional parameter specifying a clustering assignment of the phage k-mer data-points
-    :return: A tuple containing the start and stop indicies of the most likely prophage region in the sequence
-    '''
-    window = 7500
-    slide = 100
-    if len(sequence) <= window:
-        return (0, len(sequence))
+    # Scoring Algorithm Functions
+    def proximity_metric(self, point, nearest_positive, nearest_negative):
+        '''
+        This function scores a point for being near positive and away from negative
+        :param point: A numpy array with the point to be scored
+        :param nearest_positive: A numpy array containing the centroid of the nearest positive cluster
+        :param nearest_negative: A numpy array containing the centroid of the nearest negative cluster
+        :return: A score for that point. A higher score is if the point is near the positive and far from the negative
+        '''
+        error_neg = np.linalg.norm(point - nearest_negative)
+        error_pos = np.linalg.norm(point - nearest_positive)
+        x = (error_neg - error_pos) / (error_pos + error_neg)
+        x = np.tanh(x)
+        return x
 
-    if assignment is None:
-        assignment = dbscan(phage_kmers, 0.017571, 16, expected_noise=0.35)
+    def dbscan_score_points(self):
+        '''
+        Scoring function for the dbscan method
+        :return: A list of scores corresponding to the points
+        '''
+        positive_assignment = learning.dbscan(self.positive_data, self.eps[0], self.min_samples[0])
+        negative_assignment = learning.dbscan(self.negative_data, self.eps[1], self.min_samples[1])
 
-    phage_centroids = get_centroids(phage_kmers, assignment)
-    kmer_length = int(np.log(phage_kmers.shape[1]) / np.log(4))
+        # resort to k-means if things go poorly...
+        if max(positive_assignment) < 2:
+            logger.warning("Clustering positive with k-means instead...")
+            positive_assignment = learning.kmeans(self.positive_data, self.k_clusters_positive)
+        if max(negative_assignment) < 2:
+            logger.warning("Clustering negative with k-means instead...")
+            negative_assignment = learning.kmeans(self.negative_data, self.k_clusters_negative)
 
-    num_windows = 1 + (len(sequence) - window) / slide
-    slides_per_window = window / slide
-    num_slides = 1 + len(sequence) // slide
-    slide_kmers = np.zeros((num_slides, phage_kmers.shape[1]))
-    for i in xrange(num_slides):
-        slide_kmers[i] = kmer.count(sequence[slide * i:slide * (i + 1)], kmer_length, normalize=False)
+        positive_centroids = learning.get_centroids(self.positive_data, positive_assignment)
+        negative_centroids = learning.get_centroids(self.negative_data, negative_assignment)
 
-    scores = np.zeros(num_windows)
-    for i in xrange(num_windows):
-        window_kmer_freqs = kmer.normalize_counts(np.sum(slide_kmers[i:i+slides_per_window], axis=0))
-        scores[i] = get_density(window_kmer_freqs, phage_centroids)
-    del slide_kmers
+        scores = [0] * self.num_points
+        for i in xrange(self.num_points):
+            point = self.data_points[i]
+            closest_positive = learning.closest_to(point, positive_centroids)
+            closest_negative = learning.closest_to(point, negative_centroids)
+            scores[i] = [self.proximity_metric(point, closest_positive, closest_negative)]
 
-    start = np.argmax(scores)
-    stop = start + slides_per_window
+        return scores
 
-    return (slide * start, slide * stop)
+    def kmeans_score_points(self):
+        '''
+        Scoring function for the kmeans method
+        :return: A list of scores corresponding to the points
+        '''
+        positive_assignment = learning.kmeans(self.positive_data, self.k_clusters)
+        negative_assignment = learning.kmeans(self.negative_data, self.k_clusters)
+        positive_centroids = learning.get_centroids(self.positive_data, positive_assignment)
+        negative_centroids = learning.get_centroids(self.negative_data, negative_assignment)
 
+        scores = [0] * self.num_points
+        for i in xrange(self.num_points):
+            point = self.data_points[i]
+            closest_positive = learning.closest_to(point, positive_centroids)
+            closest_negative = learning.closest_to(point, negative_centroids)
+            scores[i] = [self.proximity_metric(point, closest_positive, closest_negative)]
+        return scores
 
-def score_points(points, positive_data, negative_data, method='combo', eps=[0.012,0.012], min_samples=[2,2]):
-    '''
-    This function scores a set of points against positive and negative datapoints.
-    :param points: The points to score as row vectors in a numpy array
-    :param positive_data: The positive datapoints to use in scoring as row vectors in a numpy array
-    :param negative_data: The negative datapoints to use in scoring as row vectors in a numpy array
-    :param eps: A list specifying the DBSCAN proximity length for positive and negative in that order
-    :param min_samples: A list specifying the DBSCAN minimum points in a cluster for positive and negative in that order
-    :return: A tuple containing a list of ...
-    '''
-    num_points = points.shape[0]
-    num_positive = positive_data.shape[0]
-    num_negative = negative_data.shape[0]
-    train = np.vstack((positive_data, negative_data))
-    labels = np.append(np.ones(num_positive), np.zeros(num_negative))
+    def svm_score_points(self):
+        '''
+        Scoring function for the kmeans method
+        :return: A list of scores corresponding to the points
+        '''
+        machine = learning.svm.NuSVC()
+        machine.fit(self.train, self.labels)
+        scores = machine.predict(self.data_points)
+        return scores
 
-    logger.info("Scoring %d points with: %s..." % (points.shape[0], method.upper()))
+    def knn_score_points(self):
+        '''
+        Scoring function for the knn method
+        :return: A list of scores corresponding to the points
+        '''
+        scores = [learning.knn(point, self.train, self.labels) for point in self.data_points]
+        return 2 * (np.array(scores) - 0.5)
 
-    if method == 'dbscan':
-        positive_assignment = dbscan(positive_data, eps[0], min_samples[0])
-        negative_assignment = dbscan(negative_data, eps[1], min_samples[1])
-        if max(positive_assignment) == -1:
-            positive_assignment = kmeans(positive_data, 86)
-        if max(negative_assignment) == -1:
-            negative_assignment = kmeans(negative_data, 86)
-
-        positive_centroids = get_centroids(positive_data, positive_assignment)
-        negative_centroids = get_centroids(negative_data, negative_assignment)
-        scores = [score_point(point, closest_to(point, positive_centroids), closest_to(point, negative_centroids)) for point in points]
-    elif method == 'kmeans':
-        positive_assignment = kmeans(positive_data, 30)
-        negative_assignment = kmeans(negative_data, 30)
-        positive_centroids = get_centroids(positive_data, positive_assignment)
-        negative_centroids = get_centroids(negative_data, negative_assignment)
-        scores = [score_point(point, closest_to(point, positive_centroids), closest_to(point, negative_centroids)) for point in points]
-    elif method == 'svm':
-        machine = svm.NuSVC()
-        machine.fit(train, labels)
-        scores = machine.predict(points)
-    elif method == 'knn':
-        scores = [knn(point, train, labels) for point in points]
-    elif method == 'density':
-        scores = np.zeros(num_points)
-        for i in xrange(num_points):
-            point = points[i]
-            pos_density = get_density(point, positive_data, bandwidth=0.005)
-            neg_density = get_density(point, negative_data, bandwidth=0.01)
+    def density_score_points(self):
+        '''
+        Scoring function for the density method
+        :return: A list of scores corresponding to the points
+        '''
+        scores = np.zeros(self.num_points)
+        for i in xrange(self.num_points):
+            point = self.data_points[i]
+            pos_density = learning.get_density(point, self.positive_data, bandwidth=self.positive_bandwidth)
+            neg_density = learning.get_density(point, self.negative_data, bandwidth=self.negative_bandwidth)
             score = pos_density - neg_density
             scores[i] = score
-    elif method == 'silhouette':
-        positive_appended = np.append(positive_data, points, axis=0)
-        negative_appended = np.append(negative_data, points, axis=0)
-        positive_assignment = kmeans(positive_appended, 86)
-        negative_assignment = kmeans(negative_appended, 86)
-        pos_sils = silhouettes(positive_appended, positive_assignment)
-        neg_sils = silhouettes(negative_appended, negative_assignment)
-        scores = np.array(pos_sils[-num_points:] - neg_sils[-num_points:])
-    elif method == 'combo':
-        knn_scores = score_points(points, positive_data, negative_data, method='knn')
-        cluster_scores = score_points(points, positive_data, negative_data, method='dbscan')
-        scores = 2 * ((knn_scores - 0.5) + 150 * cluster_scores)
-    return np.array(scores)
+        return scores
 
+    def silhouette_score_points(self):
+        '''
+        Scoring function for the silhouette method
+        :return: A list of scores corresponding to the points
+        '''
+        positive_appended = np.append(self.positive_data, self.data_points, axis=0)
+        negative_appended = np.append(self.positive_data, self.data_points, axis=0)
+        positive_assignment = learning.kmeans(positive_appended, 86)
+        negative_assignment = learning.kmeans(negative_appended, 86)
+        pos_sils = learning.silhouettes(positive_appended, positive_assignment)
+        neg_sils = learning.silhouettes(negative_appended, negative_assignment)
+        scores = np.array(pos_sils[-self.num_points:] - neg_sils[-self.num_points:])
+        return scores
 
-def score_point(point, nearest_positive, nearest_negative):
-    '''
-    This function scores a point for being near positive and away from negative
-    :param point: A numpy array with the point to be scored
-    :param nearest_positive: A numpy array containing the centeroid of the nearest positive cluster
-    :param nearest_negative: A numpy array containing the centeroid of the nearest negative cluster
-    :return: A score for that point. A higher score is if the point is near the positive and far from the negative
-    '''
-    return np.exp(np.linalg.norm(point - nearest_negative) - np.linalg.norm(point - nearest_positive)) - 1
+    def combo_score_points(self):
+        '''
+        Scoring function for the combo method
+        :return: A list of scores corresponding to the points
+        '''
+        self.scoring_method = 'knn'
+        knn_scores = self.score_points()
+        self.scoring_method = 'kmeans'
+        cluster_scores = self.score_points()
+        self.scoring_method = 'combo'
+        return np.array(knn_scores) + np.array(cluster_scores)
 
+    # Making output files
+    def make_summary_file(self, args=None):
+        '''
+        This function is for saving phamer scores to file
+        :param args: An argparse parserd arguments
+        :return: None
+        '''
+        fileIO.save_counts(self.ids, self.scores, self.get_phamer_output_filename(), args=args)
 
-def get_contig_id(header):
-    '''
-    Returns the ID number from a contig header
-    :param header: The contig header
-    :return: The contig ID number as an integer
-    '''
-    parts = header.split('_')
-    return int(parts[1 + parts.index('ID')].replace('-circular', ''))
+    def save_tsne_data(self, args=None):
+        '''
+        This function saves t-SNE data
+        :param args:
+        :return:
+        '''
+        tsne_file = self.get_tsne_output_filename()
+        ids = np.concatenate((self.data_ids, self.positive_ids, self.negative_ids))
+        chops = (len(self.data_ids), len(self.positive_ids), len(self.negative_ids))
+        fileIO.save_tsne_data(tsne_file, self.tsne_data, ids, args=args, chops=chops)
 
+    # t-SNE
+    def do_tsne(self, perplexity=30):
+        '''
+        This function does t-SNE on the positive, negative, and unknown data provided
+        :return: None
+        '''
+        all_data = np.vstack((self.data_points, self.positive_data, self.negative_data))
+        # This is to save memory and potentially prevent memory error
+        del self.data_points
+        del self.positive_data
+        del self.negative_data
+        logger.debug("Initiating t-SNE...")
+        self.tsne_data = TSNE(perplexity=perplexity, verbose=True).fit_transform(all_data)
+        logger.info("t-SNE complete.")
 
-def get_bacteria_id(header):
-    '''
-    This function gets the ID from a bacteria fasta header
-    :param header: The header string
-    :return: The genbank id
-    '''
-    return header.split(' ')[0]
+        logger.debug("Rearranging data...")
+        chops = (self.num_points, self.num_positive, self.num_negative)
+        self.data_points, self.positive_data, self.negative_data = basic.chop(all_data, chops)
+        del all_data
 
-
-def get_phage_id(header):
-    '''
-    This function gets the genbank id from the header of phage fasta
-    :param header: The string fasta header
-    :return: The string representation of the id
-    '''
-    return header.split('|')[3]
-
-
-def get_id(header):
-    '''
-    Decides what kind of ID needs to be retrieved and decides how to correctly parse it
-    :param header: the header to be parsed
-    :return: The ID which has been retrieved from the header
-    '''
-    if '_ID_' in header:
-        return get_contig_id(header)
-    elif header.count('|') == 4:
-        return get_phage_id(header)
-    else:
-        return get_bacteria_id(header)
-
-
-def save_tsne_data(filename, tsne_data, ids, header='tsne output\nid,x,y'):
-    '''
-    This function saves t-SNE data to file with ids in the first column and x,y values in the second and third
-    :param filename: The name of the file to save the data to
-    :param tsne_data: x,y coordinates for each poitn to store
-    :param ids: The ids coresponding to each datapoint in the tsne_data
-    :param header: The header of the file
-    :return: None
-    '''
-    X = np.hstack((np.array([ids]).transpose(), tsne_data.astype(str)))
-    np.savetxt(filename, X, fmt='%s', delimiter=',', header=header)
-
-
-def read_tsne_file(tsne_file):
-    '''
-    This file returns the data from a t-SNE file, which can be split into the kinds that is
-    :param tsne_file: The filename of the t-SNE csv file
-    :param chop: Set to true to have the data split into a list based on the number of unknown, positive, and negative
-    datapoints. Number of each kind are specified on the second line of the file as follows: #unk,pos,neg=(n_unk, n_pos, n_neg)
-    :return: Either the raw data in a numpy array, or if chopped, a list of numpy arrays in the order unknown, positive
-    and then negative
-    '''
-    data = np.loadtxt(tsne_file, dtype=str, delimiter=',')
-    ids = list(data[:, 0].transpose())
-    ids = [int(id) for id in ids if represents_int(id)]
-    points = data[:, 1:].astype(float)
-    with open(tsne_file, 'r') as f:
-        for i, line in enumerate(f):
-            if i == 1:
-                nums = line.split('=')[1].replace('(','').replace(')','').strip()
-                chops = [int(x.strip()) for x in nums.split(',')]
-    return ids, points, chops
-
-
-def represents_int(s):
-    '''
-    This function determines if a string represents an integer
-    :param s: The string
-    :return: True if the string represents an integer
-    '''
-    try:
-        int(s)
-        return True
-    except ValueError:
-        return False
-
-
-def make_plots(positive, negative, unknown, filename='tsne_plot_all.png'):
-    '''
-    This function makes a t-SNE plot of all points
-    :param positive: The 2D t-SNE positive (phage) points to plot in a numpy array
-    :param negative: The 2D t-SNE negative points to plot in a numpy array
-    :param unknown: The 2D t-SNE unknown points to plot in a numpy array
-    :param filename: The name of the file to save the image to
-    :return: None
-    '''
-    plt.figure(figsize=(30, 24))
-    pos = plt.scatter(positive[:, 0], positive[:, 1], c=[0, 0, 1], label='positive', alpha=0.9, marker='o')
-    neg = plt.scatter(negative[:, 0], negative[:, 1], c=[0, 0, 0], label='negative', alpha=0.9, marker='o')
-    unk = plt.scatter(unknown[:, 0], unknown[:, 1], c=[1, 0, 0], label='unknown', alpha=0.9,  marker='o')
-    plt.legend(handles=[pos, neg, unk])
-    plt.title('t-SNE output')
-    plt.grid(True)
-    plt.savefig(filename)
-
-
-def generate_summary(args):
-    '''
-    This makes a summary for the output file
-    :param args: The parsed argument parser from function call
-    :return: a beautiful summary
-    '''
-    return args.__str__().replace('Namespace(', '# ').replace(')', '').replace(', ', '\n# ').replace('=', ':\t') + '\n'
-
-
-def read_phamer_output(filename):
-    '''
-    This file reads a phamer summary file and returns the scores for the Phamer run
-    :param filename: The file name of the Phamer summary file
-    :return: A distionary mapping contig ID to Phamer score
-    '''
-    score_dict = {}
-    lines = open(filename, 'r').readlines()
-    for line in lines:
-        if '#' not in line:
+    def make_tsne_plot(self, tsne_file=None):
+        '''
+        This function makes a t-SNE plot of all points
+        :param positive: The 2D t-SNE positive (phage) points to plot in a numpy array
+        :param negative: The 2D t-SNE negative points to plot in a numpy array
+        :param unknown: The 2D t-SNE unknown points to plot in a numpy array
+        :return: None
+        '''
+        tsne_data_points, tsne_positive, tsne_negative = basic.chop(self.tsne_data, [self.num_unknown, self.num_positive, self.num_negative])
+        if tsne_file and os.path.isfile(tsne_file):
+            logger.debug("Using t-SNE data from: %s" % os.path.basename(tsne_file))
             try:
-                id = int(line.split()[1])
+                self.tsne_data = fileIO.read_tsne_file(tsne_file)
             except:
-                id = get_contig_id(line.split()[1])
-            score_dict[id] = float(line.split()[0])
-    return score_dict
+                logger.error("Failed to read t-SNE file: %s" % os.path.basename(tsne_file))
+
+        if self.tsne_data is None and os.path.isfile(self.get_tsne_output_filename()):
+            try_tsne_file = self.get_tsne_output_filename()
+            logger.debug("self.tsne_data is None. Looking for t-SNE data in: %s" % os.path.basename(try_tsne_file))
+            try:
+                self.tsne_data = fileIO.read_tsne_file(try_tsne_file)
+            except:
+                logger.error("Failed to read t-SNE file: %s" % os.path.basename(try_tsne_file))
+
+        if self.tsne_data is None:
+            logger.warning("Did not have nor could retrieve t-SNE data. t-SNE plot was not made.")
+        else:
+            plt.figure(figsize=self.tsne_figsize)
+            pos = plt.scatter(tsne_positive[:, 0], tsne_positive[:, 1], c=[0, 0, 1], label='positive', alpha=0.9, marker='o')
+            neg = plt.scatter(tsne_negative[:, 0], tsne_negative[:, 1], c=[0, 0, 0], label='negative', alpha=0.9, marker='o')
+            unk = plt.scatter(tsne_data_points[:, 0], tsne_data_points[:, 1], c=[1, 0, 0], label='unknown', alpha=0.9, marker='o')
+            plt.legend(handles=[pos, neg, unk])
+            plt.title('t-SNE output')
+            plt.grid(True)
+            file_name = self.get_plot_output_filename()
+            plt.savefig(file_name)
+
+    # Functions for finding files
+    def find_data_files(self):
+        '''
+        This function finds data files in their proper location from the data directory
+        :return: None
+        '''
+        # These are file locations in their default places
+        self.positive_fasta = os.path.join(self.data_directory, "all_phage_genomes.fasta")
+        self.negative_fasta = os.path.join(self.data_directory, "bacteria_genomes_2")
+        self.positive_features_file = os.path.join(self.data_directory, "reference_features", "positive_features.csv")
+        self.negative_features_file = os.path.join(self.data_directory, "reference_features", "negative_features.csv")
+
+    def find_input_files(self):
+        '''
+        This function finds input files if the input directory is properly set up
+        :return: None
+        '''
+        if self.input_directory and os.path.isdir(self.input_directory):
+            fasta_files = [file for file in os.listdir(self.input_directory) if file.endswith('.fasta') or file.endswith('.fa')]
+            if len(fasta_files) == 1:
+                self.fasta_file = os.path.join(self.input_directory, fasta_files[0])
+
+            features_files = [file for file in os.listdir(self.input_directory) if file.endswith('.csv')]
+            if len(features_files) == 1:
+                self.features_file = os.path.join(self.input_directory, features_files[0])
+
+    # Functions for generating paths to output files
+    def get_phamer_output_filename(self):
+
+        return os.path.join(self.output_directory, "phamer_scores.csv")
+
+    def get_tsne_output_filename(self):
+
+        return os.path.join(self.output_directory, "tsne_coordinates.csv")
+
+    def get_plot_output_filename(self):
+
+        return os.path.join(self.output_directory, "tsne_plot_phamer.svg")
+
+def decide_files(scorer, args):
+    '''
+    This function decides which data files to use, based on those which were provided by the user
+    :param scorer: Phamer scorer object
+    :param args: Argparse parsed arguments object
+    :return: None
+    '''
+
+    if args.input_directory:
+        scorer.input_directory = args.input_directory
+        scorer.find_input_files()
+
+    if args.data_directory:
+        scorer.data_directory = args.data_directory
+        scorer.find_data_files()
+
+    # Deciding where the output directory should be
+    if args.output_directory:
+        # If a directory was provided by the use
+        scorer.output_directory = args.output_directory
+    else:
+        # No explicit directory, try to make put it with the inputs
+        if not scorer.input_directory and args.input_directory:
+            scorer.input_drectory = args.input_directory
+        elif not scorer.input_fastas and args.input_fasta:
+            scorer.input_drectory = os.path.dirname(args.input_fasta)
+        elif not scorer.features_file and args.features_file:
+            scorer.input_drectory = os.path.dirname(args.features_file)
+        scorer.output_directory = os.path.join(scorer.input_directory, "Phamer_output", "phamer")
+
+    scorer.fasta_file = basic.decide_file(args.fasta_file, scorer.fasta_file)
+    scorer.features_file = basic.decide_file(args.features_file, scorer.features_files)
+    scorer.positive_fasta = basic.decide_file(args.positive_fasta, scorer.positive_fasta)
+    scorer.negative_fasta = basic.decide_file(args.negative_fasta, scorer.negative_fasta)
+    scorer.positive_features = basic.decide_file(args.positive_features, scorer.positive_features)
+    scorer.negative_features = basic.decide_file(args.negative_features, scorer.negative_features)
+
+def score_points(scoring_data, positive_training_data, negative_training_data):
+    '''
+    This is a function that will score data in the same way that the phamer_scoring object would but this
+    works as a function with arguments rathern than as the method of an object. This is used in the cross validation
+    script so that testing can be done with the same exact method of
+    :param scoring_data: Data to score in a numpy array (rows = items)
+    :param pos_training_data: Positive data in a numpy array
+    :param neg_training_data: Negative data in a numpy array
+    :return: A list of scores as a numpy array
+    '''
+    scorer = phamer_scorer()
+    scorer.data_points = scoring_data
+    scorer.positive_data = positive_training_data
+    scorer.negative_data = negative_training_data
+    return scorer.score_points()
 
 
 if __name__ == '__main__':
 
-    call_time = time.strftime("%Y-%m-%d %H:%M")
-
-    script_description='This script scores contigs based on k-mer frequency similarity'
+    script_description = 'This script scores contigs based on feature similarity'
     parser = argparse.ArgumentParser(description=script_description, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     input_group = parser.add_argument_group("Inputs")
-    input_group.add_argument('-in', '--input_file', type=str, help='Fasta compilation file of unknown sequences')
-    input_group.add_argument('-p', '--positive_input', type=str, help='Fasta compilation file of positive sequences')
-    input_group.add_argument('-n', '--negative_directory', type=str, help='Dir')
-    input_group.add_argument('-i', '--file_identifier', type=str, default='.fna', help='File identifier for fasta files in negative directory')
-    input_group.add_argument('-pk', '--positive_kmer_file', type=str, help='positive kmer file')
-    input_group.add_argument('-nk', '--negative_kmer_file', type=str, help='negative kmer file')
-    input_group.add_argument('-kmers', '--input_kmer_file', type=str, default='', help="Input k-mer file")
-    input_group.add_argument('-lin', '--lineage_file', type=str, default='phage_lineages.txt', help='Lineage file for positive sequences')
-    input_group.add_argument('-tsne', '--tsne_file', default='tsne_out.csv', type=str, help='Preprocessed t-SNE data file in csv format')
+    input_group.add_argument('-in', '--input_directory', help='Directory containing input files')
+    input_group.add_argument('-fasta', '--fasta_file', help='Fasta compilation file of unknown sequences')
+    input_group.add_argument('-features', '--features_file', help="Input feature file")
+    input_group.add_argument('-tsne', '--tsne_file', help='Preprocessed t-SNE data file in csv format')
+
+    data_group = parser.add_argument("Data")
+    data_group.add_argument('-data', "--data_directory", help="Directory containing all relevant data files")
+    data_group.add_argument('-p', '--positive_fasta', help='Fasta compilation file of positive sequences')
+    data_group.add_argument('-n', '--negative_fasta', help='Fasta compilation or directory of negative seuquences')
+    data_group.add_argument('-id', '--file_identifier', default='.fna', help='File identifier for fasta files in negative directory')
+    data_group.add_argument('-pf', '--positive_features', help='positive feature file')
+    data_group.add_argument('-nf', '--negative_features', help='negative feature file')
 
     output_group = parser.add_argument_group("Outputs")
-    output_group.add_argument('-out', '--output_dir', type=str, default='phamer_out', help='Directory to dump output files')
+    output_group.add_argument('-out', '--output_directory', help='Directory to put output files')
 
     options_group = parser.add_argument_group("Options")
     options_group.add_argument('-k', '--kmer_length', type=int, default=4, help='Length of k-mers analyzed')
-    options_group.add_argument('-l', '--length_requirement', type=int, default=5000, help='Input sequence length requirement for scoring')
+    options_group.add_argument('-l', '--length_requirement', type=int, default=5000, help='Sequence length requirement')
+    options_group.add_argument('-equal', '--equalize_reference', action='store_true', help="Use same number of reference")
 
     tsne_options_group = parser.add_argument_group("t-SNE Options")
-    tsne_options_group.add_argument('-dt', '--do_tsne', action='store_true', help='Flag to perform t-SNE')
-    tsne_options_group.add_argument('-px', '--perplexity', type=float, default=30, help='t-SNE Perplexity')
-    tsne_options_group.add_argument('-plot', action='store_true', default=False, help='Flag makes t-SNE plots')
+    tsne_options_group.add_argument('-tsne', '--do_tsne', action='store_true', help='Flag to perform new t-SNE')
+    tsne_options_group.add_argument('-pxty', '--perplexity', type=float, default=30, help='t-SNE Perplexity')
+    tsne_options_group.add_argument('-plot', '--plot_tsne', action='store_true', help='Flag makes t-SNE plots')
 
     learning_options_group = parser.add_argument_group("Learning Options")
-    learning_options_group.add_argument('-m', '--method', type=str, default='combo', help='Learning algorithm name')
+    learning_options_group.add_argument('-m', '--method', default='combo', help='Learning algorithm name')
     learning_options_group.add_argument('-eps', '--eps', type=float, default=2.1, help='DBSCAN eps parameter')
     learning_options_group.add_argument('-mp', '--minPts', type=int, default=2, help='DBSCAN minimum points per cluster parameter')
 
     console_options_group = parser.add_argument_group("Console Options")
-    console_options_group.add_argument('-v', '--verbose', action='store_true', default=False, help='Verbose output')
-    console_options_group.add_argument('--debug', action='store_true', default=False, help='Debug console')
+    console_options_group.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
+    console_options_group.add_argument('--debug', action='store_true', help='Debug console')
 
     args = parser.parse_args()
-
-    input_file = args.input_file
-    output_dir = args.output_dir
-    kmer_length = args.kmer_length
-    length_requirement = args.length_requirement
-    positive_file = args.positive_input
-    positive_kmer_file = args.positive_kmer_file
-    negative_directory = args.negative_directory
-    negative_kmer_file = args.negative_kmer_file
-    tsne_file = os.path.join(output_dir, args.tsne_file)
-    perplexity = args.perplexity
-    lineage_file = args.lineage_file
-    do_tsne = args.do_tsne
-    method = args.method
-    input_kmer_file = args.input_kmer_file
 
     if args.debug:
         logger.setLevel(logging.DEBUG)
@@ -509,92 +512,28 @@ if __name__ == '__main__':
         logger.setLevel(logging.WARNING)
         logging.basicConfig(format='[log][%(levelname)s] - %(message)s')
 
+    # Making a new scoring object
+    scorer = phamer_scorer()
+    # Deciding between default files, and those provided by the use
+    decide_files(scorer, args)
+    logger.info("Loading data into scoring object...")
+    scorer.load_data()
 
-    if None not in [positive_kmer_file, negative_kmer_file] and os.path.exists(positive_kmer_file) and os.path.exists(negative_kmer_file):
-        positive_ids, positive_kmer_count = kmer.read_kmer_file(positive_kmer_file, normalize=True)
-        negative_ids, negative_kmer_count = kmer.read_kmer_file(negative_kmer_file, normalize=True)
+    if not os.path.isdir(scorer.output_directory):
+        os.mkdir(scorer.output_directory)
 
-        num_positive = positive_kmer_count.shape[0]
-        num_negative = negative_kmer_count.shape[0]
-
-        negative_kmer_count = negative_kmer_count[:num_positive]
-        negative_ids = negative_ids[:num_positive]
-        num_negative = num_positive
-    else:
-        positive_ids, positive_kmer_count = kmer.count
-
-
-    if os.path.exists(input_kmer_file):
-        logger.info("Reading k-mer counts from file: %s ..." % os.path.basename(input_kmer_file))
-        unknown_ids, unknown_kmer_count = kmer.read_kmer_file(input_kmer_file)
-        num_unknown = len(unknown_ids)
-        which_are_long = [i for i in xrange(num_unknown) if np.sum(unknown_kmer_count[i]) >= length_requirement]
-        unknown_ids = [unknown_ids[i] for i in which_are_long]
-
-    else:
-        # Screening input by length
-        logger.info("Screening input by length %.1f kbp..." % (length_requirement / 1000.0))
-        unknown_ids, unknown_sequences = kmer.read_fasta(input_file)
-        num_unknown = len(unknown_ids)
-        which_are_long = [i for i in xrange(num_unknown) if len(unknown_sequences[i]) >= length_requirement]
-        unknown_ids = [unknown_ids[i] for i in which_are_long]
-        logger.info("Done screening by input length.")
-
-        # Counting Input
-        logger.info("Counting k-mers...")
-        contig_ids, unknown_kmer_count = kmer.count_file(input_file, kmer_length, normalize=False)
-        if not os.path.isdir(output_dir):
-            os.system('mkdir %s' % output_dir)
-
-        kmer_out_file = os.path.join(output_dir, '%s_%dmers.csv' % (input_file, kmer_length))
-        kmer_header = '%d-mers from %s' % (kmer_length, input_file)
-        kmer.save_counts(unknown_kmer_count, contig_ids, kmer_out_file, args, header=kmer_header)
-
-
-    unknown_kmer_count = kmer.normalize_counts(unknown_kmer_count)
-    logger.info("done counting k-mers")
-
-    unknown_kmer_count = unknown_kmer_count[which_are_long]
-
-    num_positive = positive_kmer_count.shape[0]
-    num_negative = negative_kmer_count.shape[0]
-    num_unknown = unknown_kmer_count.shape[0]
-
-    # Scoring Contigs
-    scores = score_points(unknown_kmer_count, positive_kmer_count, negative_kmer_count, method=method)
-    logger.info("done scoring.")
-
-    # Summary file generation
-    summary_header = '#Phamer summary and score file for %s from %s\n' % (input_file, call_time)
-    f = open(os.path.join(output_dir, 'summary.txt'), 'w')
-    f.write(summary_header)
-    f.write(generate_summary(args))
-    for score, id in sorted(zip(scores, unknown_ids)):
-        f.write('%.3f\t%s\n' % (score, id))
+    logger.info("Scoring points...")
+    scorer.score_points()
+    logger.info("Writing scores to file...")
+    scorer.make_summary_file(args=args)
 
     # t-SNE
-    if do_tsne and tsne_file:
-        tic = time.time()
-        all_data = np.vstack((unknown_kmer_count, positive_kmer_count, negative_kmer_count))
-        tsne_data = tsne.tsne(all_data, no_dims=2, perplexity=perplexity)
-        del all_data
-        tsne_time = time.time() - tic
-        logger.info("t-SNE complete:  %d h %d m %.1f s" % (tsne_time//3600,(tsne_time%3600)//60,tsne_time%60))
-
-        tsne_header = "t-SNE output (perplexity=%.1f)" % perplexity
-        tsne_header += "\nunknown,positive,negative=(%d,%d,%d)\n" % (num_unknown, num_positive, num_negative)
-        tsne_header += generate_summary(args).strip()
-        tsne_header += "id,x,y"
-
-        ids = np.concatenate((unknown_ids, positive_ids, negative_ids))
-        save_tsne_data(tsne_file, tsne_data, ids, header=tsne_header)
-
-    elif tsne_file and os.path.isfile(tsne_file):
-        tsne_data = read_tsne_file(tsne_file)
+    if args.do_tsne and args.tsne_file:
+        logger.info("Performing t-SNE")
+        scorer.to_tsne(perplexity=args.perplexity)
 
     # Plotting
-    if args.plot:
-        logger.info("Creating plots...")
-        tsne_unknown, tsne_positive, tsne_negative = chop([tsne_data, num_unknown, num_positive, num_negative])
-        make_plots(tsne_positive, tsne_negative, tsne_unknown, filename=os.path.join(output_dir, 'tsne_plot_all.svg'))
-        logger.info("Done creating plots.")
+    if args.plot_tsne:
+        logger.info("Creating t-SNE plot...")
+        scorer.make_tsne_plot()
+        logger.info("Done creating t-SNE plot.")
