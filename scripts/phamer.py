@@ -91,14 +91,14 @@ class phamer_scorer(object):
         # loading reference data
         if self.positive_features and os.path.exists(self.positive_features):
             logger.info("Reading positive features from: %s" % os.path.basename(self.positive_features))
-            scorer.positive_ids, scorer.positive_data = kmer.read_feature_file(self.positive_features, normalize=True)
+            scorer.positive_ids, scorer.positive_data = fileIO.read_feature_file(self.positive_features, normalize=True)
         elif self.positive_fasta and os.path.exists(self.positive_fasta):
             logger.info("Counting positive k-mers from: %s" % os.path.basename(self.positive_fasta))
             scorer.positive_ids, scorer.positive_data = kmer.count(self.positive_fasta)
 
         if self.negative_features and os.path.exists(self.negative_features):
             logger.info("Reading negative features from: %s" % os.path.basename(self.negative_features))
-            scorer.negative_ids, scorer.negative_data = kmer.read_feature_file(self.positive_features, normalize=True)
+            scorer.negative_ids, scorer.negative_data = fileIO.read_feature_file(self.positive_features, normalize=True)
         elif self.negative_fasta and os.path.exists(self.negative_fasta):
             logger.info("Counting negative k-mers from: %s" % os.path.basename(self.negative_fasta))
             scorer.negative_ids, scorer.negative_data = kmer.count(self.negative_fasta)
@@ -430,18 +430,18 @@ def decide_files(scorer, args):
         # No explicit directory, try to make put it with the inputs
         if not scorer.input_directory and args.input_directory:
             scorer.input_drectory = args.input_directory
-        elif not scorer.input_fastas and args.input_fasta:
-            scorer.input_drectory = os.path.dirname(args.input_fasta)
+        elif not scorer.fasta_file and args.input_fasta:
+            scorer.input_drectory = os.path.dirname(args.fasta_file)
         elif not scorer.features_file and args.features_file:
             scorer.input_drectory = os.path.dirname(args.features_file)
         scorer.output_directory = os.path.join(scorer.input_directory, "Phamer_output", "phamer")
 
     scorer.fasta_file = basic.decide_file(args.fasta_file, scorer.fasta_file)
-    scorer.features_file = basic.decide_file(args.features_file, scorer.features_files)
+    scorer.features_file = basic.decide_file(args.features_file, scorer.features_file)
     scorer.positive_fasta = basic.decide_file(args.positive_fasta, scorer.positive_fasta)
     scorer.negative_fasta = basic.decide_file(args.negative_fasta, scorer.negative_fasta)
-    scorer.positive_features = basic.decide_file(args.positive_features, scorer.positive_features)
-    scorer.negative_features = basic.decide_file(args.negative_features, scorer.negative_features)
+    scorer.positive_features = basic.decide_file(args.positive_features, scorer.positive_features_file)
+    scorer.negative_features = basic.decide_file(args.negative_features, scorer.negative_features_file)
 
 def score_points(scoring_data, positive_training_data, negative_training_data, method=None):
     '''
@@ -490,7 +490,7 @@ if __name__ == '__main__':
     options_group.add_argument('-equal', '--equalize_reference', action='store_true', help="Use same number of reference")
 
     tsne_options_group = parser.add_argument_group("t-SNE Options")
-    tsne_options_group.add_argument('-tsne', '--do_tsne', action='store_true', help='Flag to perform new t-SNE')
+    tsne_options_group.add_argument('-do_tsne', '--do_tsne', action='store_true', help='Flag to perform new t-SNE')
     tsne_options_group.add_argument('-pxty', '--perplexity', type=float, default=30, help='t-SNE Perplexity')
     tsne_options_group.add_argument('-plot', '--plot_tsne', action='store_true', help='Flag makes t-SNE plots')
 
