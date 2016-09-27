@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-def generate_summary(args, line_start='# ', header=''):
+def generate_summary(args, line_start='', header=''):
     '''
     This function makes a summary for an output file from an argparse parsed arguments object
     The summary will
