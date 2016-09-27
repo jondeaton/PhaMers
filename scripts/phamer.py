@@ -68,6 +68,7 @@ class phamer_scorer(object):
                              self.combo_score_points]
         self.method_function_map = dict(zip(self.all_scoring_methods, scoring_functions))
 
+        self.combination_coefficient = 0.2
         self.k_clusters = 86
         self.k_clusters_positive = 86
         self.k_clusters_negative = 20
@@ -223,12 +224,12 @@ class phamer_scorer(object):
         positive_centroids = learning.get_centroids(self.positive_data, positive_assignment)
         negative_centroids = learning.get_centroids(self.negative_data, negative_assignment)
 
-        scores = [0] * self.num_points
+        scores = np.zeros(self.num_points)
         for i in xrange(self.num_points):
             point = self.data_points[i]
             closest_positive = learning.closest_to(point, positive_centroids)
             closest_negative = learning.closest_to(point, negative_centroids)
-            scores[i] = [self.proximity_metric(point, closest_positive, closest_negative)]
+            scores[i] = self.proximity_metric(point, closest_positive, closest_negative)
         return scores
 
     def svm_score_points(self):
@@ -239,7 +240,7 @@ class phamer_scorer(object):
         machine = learning.svm.NuSVC()
         machine.fit(self.train, self.labels)
         scores = machine.predict(self.data_points)
-        return scores
+        return np.array(scores)
 
     def knn_score_points(self):
         '''
@@ -442,7 +443,7 @@ def decide_files(scorer, args):
     scorer.positive_features = basic.decide_file(args.positive_features, scorer.positive_features)
     scorer.negative_features = basic.decide_file(args.negative_features, scorer.negative_features)
 
-def score_points(scoring_data, positive_training_data, negative_training_data):
+def score_points(scoring_data, positive_training_data, negative_training_data, method=None):
     '''
     This is a function that will score data in the same way that the phamer_scoring object would but this
     works as a function with arguments rathern than as the method of an object. This is used in the cross validation
@@ -453,6 +454,8 @@ def score_points(scoring_data, positive_training_data, negative_training_data):
     :return: A list of scores as a numpy array
     '''
     scorer = phamer_scorer()
+    if method:
+        scorer.scoring_method = method
     scorer.data_points = scoring_data
     scorer.positive_data = positive_training_data
     scorer.negative_data = negative_training_data
@@ -470,7 +473,7 @@ if __name__ == '__main__':
     input_group.add_argument('-features', '--features_file', help="Input feature file")
     input_group.add_argument('-tsne', '--tsne_file', help='Preprocessed t-SNE data file in csv format')
 
-    data_group = parser.add_argument("Data")
+    data_group = parser.add_argument_group("Data")
     data_group.add_argument('-data', "--data_directory", help="Directory containing all relevant data files")
     data_group.add_argument('-p', '--positive_fasta', help='Fasta compilation file of positive sequences')
     data_group.add_argument('-n', '--negative_fasta', help='Fasta compilation or directory of negative seuquences')
