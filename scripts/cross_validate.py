@@ -141,6 +141,7 @@ class cross_validator(object):
             fpr, tpr, roc_auc = learning.predictor_performance(positive_scores, negative_scores)
             plt.plot(fpr, tpr, label='%s - AUC = %0.3f' % (method.upper(), roc_auc))
 
+        logger.info("Making ROC plot for all algorithms...")
         plt.plot([0, 1], [0, 1], 'k--')
         plt.xlim([0.0, 1.0])
         plt.ylim([0.0, 1.0])
@@ -154,6 +155,7 @@ class cross_validator(object):
         file_name = self.get_combined_roc_curve_filename()
         plt.savefig(file_name)
         plt.close()
+        logger.info("Saved ROC plot...")
 
     # filename makers
     def get_score_distribution_filename(self):
@@ -162,9 +164,8 @@ class cross_validator(object):
     def get_roc_curve_filename(self):
         return os.path.join(self.output_directory, "roc.svg")
 
-
     def get_combined_roc_curve_filename(self):
-        return os.path.join(self.output_directory, "all_algorithms_roc.png")
+        return os.path.join(self.output_directory, "all_algorithms_roc.svg")
 
 
 if __name__ == '__main__':
