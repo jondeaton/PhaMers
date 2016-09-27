@@ -59,7 +59,7 @@ class phamer_scorer(object):
 
         self.tsne_data = None
 
-        self.length_requirement = None
+        self.length_requirement = 5000
 
         self.scoring_method = 'combo'
         self.all_scoring_methods = ['dbscan', 'kmeans', 'knn', 'svm', 'density', 'silhouette', 'combo']
@@ -68,7 +68,7 @@ class phamer_scorer(object):
                              self.combo_score_points]
         self.method_function_map = dict(zip(self.all_scoring_methods, scoring_functions))
 
-        self.combination_coefficient = 0.2
+        self.kmer_length = 4
         self.k_clusters = 86
         self.k_clusters_positive = 86
         self.k_clusters_negative = 20
@@ -106,32 +106,33 @@ class phamer_scorer(object):
         if args.equalize_reference:
             scorer.equalize_reference_data()
 
-        scorer.features_file, scorer.fasta_file = scorer.find_input_files(args)
+        scorer.find_input_files()
         # Loading input data
         if os.path.exists(self.features_file):
-            logger.info("Reading features from file: %s ..." % os.path.basename(args.features_file))
-            scorer.data_ids, scorer.data_points = kmer.read_kmer_file(args.features_file)
-        elif os.path.exists(args.fasta):
-            logger.info("Calculating features of: %s" % os.path.basename(args.fasta))
-            scorer.data_ids, scorer.data_points = kmer.count_file(args.fasta, args.k, normalize=False)
-            features_file = "{base}_features.csv".format(base=os.path.splitext(args.fasta)[0])
-            logger.info("Saving features to {file}...".format(file=features_file))
-            fileIO.save_counts(scorer.data_points, scorer.data_ids, features_file,args=args)
+            logger.info("Reading features from file: %s ..." % os.path.basename(self.features_file))
+            scorer.data_ids, scorer.data_points = fileIO.read_feature_file(self.features_file)
+        elif os.path.exists(self.fasta_file):
+            logger.info("Calculating features of: %s" % os.path.basename(self.fasta))
+            self.data_ids, self.data_points = kmer.count_file(self.fasta, self.kmer_length, normalize=False)
+            self.features_file = "{base}_features.csv".format(base=os.path.splitext(self.fasta_file)[0])
+            logger.info("Saving features to {file}...".format(file=self.features_file))
+            fileIO.save_counts(self.data_points, self.data_ids, self.features_file)
 
-        kmer.normalize_counts(scorer.data_points, inplace=True)
+        kmer.normalize_counts(self.data_points, inplace=True)
 
         if args.length_requirement:
             logger.info("Screening input by length: %d bp..." % args.length_requirement)
-            scorer.screen_by_length(args.fasta, args.length_requirement)
+            scorer.screen_by_length()
 
-    def screen_by_length(self, fasta_file, length_requirement):
+    def screen_by_length(self, length_requirement=None):
         '''
         This function screens input data by total length
-        :param length_requirement:
-        :return:
+        :param length_requirement: Minimum length requried for sequences
+        :return: None
         '''
-        self.length_requirement = length_requirement
-        unknown_ids, unknown_sequences = kmer.read_fasta(args.fasta)
+        if length_requirement:
+            self.length_requirement = length_requirement
+        unknown_ids, unknown_sequences = fileIO.read_fasta(self.fasta_file)
         long_ids = [unknown_ids[i] for i in xrange(len(unknown_ids)) if len(unknown_sequences) >= self.length_requirement]
         self.data_points = self.data_points[np.in1d(self.data_ids, long_ids)]
         self.data_ids = np.array(long_ids)
@@ -169,7 +170,8 @@ class phamer_scorer(object):
 
         # actually scoring points
         logger.debug("Scoring %d points. Method: %s ..." % (self.data_points.shape[0], self.scoring_method))
-        return np.array(scoring_function())
+        self.scores = np.array(scoring_function())
+        return self.scores
 
     # Scoring Algorithm Functions
     def proximity_metric(self, point, nearest_positive, nearest_negative):
@@ -297,7 +299,8 @@ class phamer_scorer(object):
         :param args: An argparse parserd arguments
         :return: None
         '''
-        fileIO.save_counts(self.ids, self.scores, self.get_phamer_output_filename(), args=args)
+        self.phamer_output_filename = self.get_phamer_output_filename()
+        fileIO.save_phamer_scores(self.data_ids, self.scores, self.phamer_output_filename, args=args)
 
     def save_tsne_data(self, args=None):
         '''
@@ -406,6 +409,24 @@ class phamer_scorer(object):
 
         return os.path.join(self.output_directory, "tsne_plot_phamer.svg")
 
+def score_points(scoring_data, positive_training_data, negative_training_data, method=None):
+    '''
+    This is a function that will score data in the same way that the phamer_scoring object would but this
+    works as a function with arguments rathern than as the method of an object. This is used in the cross validation
+    script so that testing can be done with the same exact method of
+    :param scoring_data: Data to score in a numpy array (rows = items)
+    :param pos_training_data: Positive data in a numpy array
+    :param neg_training_data: Negative data in a numpy array
+    :return: A list of scores as a numpy array
+    '''
+    scorer = phamer_scorer()
+    if method:
+        scorer.scoring_method = method
+    scorer.data_points = scoring_data
+    scorer.positive_data = positive_training_data
+    scorer.negative_data = negative_training_data
+    return scorer.score_points()
+
 def decide_files(scorer, args):
     '''
     This function decides which data files to use, based on those which were provided by the user
@@ -413,6 +434,10 @@ def decide_files(scorer, args):
     :param args: Argparse parsed arguments object
     :return: None
     '''
+
+    if args.kmer_length:
+        # This isn't a file but still needs to be loaded in if specified
+        scorer.kmer_length = args.kmer_length
 
     if args.input_directory:
         scorer.input_directory = args.input_directory
@@ -442,24 +467,6 @@ def decide_files(scorer, args):
     scorer.negative_fasta = basic.decide_file(args.negative_fasta, scorer.negative_fasta)
     scorer.positive_features = basic.decide_file(args.positive_features, scorer.positive_features_file)
     scorer.negative_features = basic.decide_file(args.negative_features, scorer.negative_features_file)
-
-def score_points(scoring_data, positive_training_data, negative_training_data, method=None):
-    '''
-    This is a function that will score data in the same way that the phamer_scoring object would but this
-    works as a function with arguments rathern than as the method of an object. This is used in the cross validation
-    script so that testing can be done with the same exact method of
-    :param scoring_data: Data to score in a numpy array (rows = items)
-    :param pos_training_data: Positive data in a numpy array
-    :param neg_training_data: Negative data in a numpy array
-    :return: A list of scores as a numpy array
-    '''
-    scorer = phamer_scorer()
-    if method:
-        scorer.scoring_method = method
-    scorer.data_points = scoring_data
-    scorer.positive_data = positive_training_data
-    scorer.negative_data = negative_training_data
-    return scorer.score_points()
 
 
 if __name__ == '__main__':
@@ -526,7 +533,7 @@ if __name__ == '__main__':
         os.mkdir(scorer.output_directory)
 
     logger.info("Scoring points...")
-    scorer.score_points()
+    scorer.scores = scorer.score_points()
     logger.info("Writing scores to file...")
     scorer.make_summary_file(args=args)
 
