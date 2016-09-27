@@ -20,7 +20,6 @@ try:
 except KeyError:
     matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from pyqt_fit import kde
 from scipy import stats
 
 __version__ = 1.0
@@ -36,19 +35,16 @@ class cross_validator(object):
 
     def __init__(self):
 
-        self.output_directory = "cross_validation"
-
-        self.roc_figsize = (9, 7)
-
         self.positive_data = None
         self.negative_data = None
-
         self.positive_scores = None
         self.negative_scores = None
 
         self.N = 20
-
+        self.method = None
         self.scoring_function = None
+        self.roc_figsize = (9, 7)
+        self.output_directory = "cross_validation"
 
     def cross_validate(self):
         '''
@@ -72,14 +68,13 @@ class cross_validator(object):
             pos_training_data = self.positive_data[np.invert(where_positive)]
             neg_training_data = self.negative_data[np.invert(where_negative)]
             # Sub-selection scoring
-            scores = self.scoring_function(scoring_data, pos_training_data, neg_training_data)
+            scores = self.scoring_function(scoring_data, pos_training_data, neg_training_data, method=self.method)
 
             self.positive_scores = np.append(self.positive_scores, scores[:np.sum(where_positive)])
             self.negative_scores = np.append(self.negative_scores, scores[np.sum(where_negative):])
 
         logger.info("%d-fold cross validation complete." % self.N)
         return self.positive_scores, self.negative_scores
-
 
     def plot_score_distributions(self):
         '''
@@ -111,7 +106,6 @@ class cross_validator(object):
         plt.savefig(file_name)
         plt.close()
 
-
     def plot_ROC(self):
         '''
         This function makes a receiver operator characteristic curve plot
@@ -133,17 +127,16 @@ class cross_validator(object):
         plt.savefig(file_name)
         plt.close()
 
-
     def cross_validate_all_algorithms(self):
         '''
-        For validation all learning algorithms
+        For cross validation of several different learning algorithms on a particular set of data
         :return: None
         '''
-
         plt.figure(figsize=self.roc_figsize)
         for method in self.methods:
             self.method = method
-            logger.info("%d-Fold Cross Validation with algorithm: %s" % (self.N, method.upper()))
+            logger.info("%d-Fold Cross Validation" % self.N)
+            logger.info("Algorithm: %s" % self.method.upper())
             positive_scores, negative_scores = self.cross_validate()
             fpr, tpr, roc_auc = learning.predictor_performance(positive_scores, negative_scores)
             plt.plot(fpr, tpr, label='%s - AUC = %0.3f' % (method.upper(), roc_auc))
@@ -189,7 +182,7 @@ if __name__ == '__main__':
     options_group = parser.add_argument_group("Options")
     options_group.add_argument('-N', '--N_fold', default=20, type=int, help="Number of iteration in N-fold cross validation")
     options_group.add_argument('-m', '--method', default='combo', help='Scoring algorithm method')
-    options_group.add_argument('-a', '--CV_all', action='store_true', help='Flag to cross validate all algorithms')
+    options_group.add_argument('-a', '--test_all', action='store_true', help='Flag to cross validate all algorithms')
 
     console_options_group = parser.add_argument_group("Console Options")
     console_options_group.add_argument('-v', '--verbose', action='store_true', default=False, help='Verbose output')
@@ -226,7 +219,7 @@ if __name__ == '__main__':
     logger.info("Plotting ROC curve...")
     validator.plot_ROC()
 
-    if args.CV_all:
+    if args.test_all:
         logger.info("Validating all algorithms...")
         validator.methods = ['dbscan', 'kmeans', 'knn', 'svm', 'density', 'combo']
         validator.cross_validate_all_algorithms()
