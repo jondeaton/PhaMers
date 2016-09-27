@@ -216,7 +216,7 @@ def save_phamer_scores(ids, scores, file_name, args=None):
     if args is not None:
         header = basic.generate_summary(args, header=header)
     arr = np.vstack((ids.astype(str), scores)).transpose()
-    np.savetxt(file_name, arr, fmt="%.4f", delimiter=',', header=header, comments="#")
+    np.savetxt(file_name, arr, delimiter=',', header=header, comments="#")
 
 
 def read_phamer_output(filename):
