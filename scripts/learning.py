@@ -75,7 +75,7 @@ def get_centroids(data, assignment):
     if num_clusters == 0:
         logger.warning("No clusters assigned to data.")
 
-    centroids = [np.mean(data[assignment == cluster_idx], axis=0) for cluster_idx in assignment if cluster_idx != -1]
+    centroids = [np.mean(data[assignment == cluster_idx], axis=0) for cluster_idx in sorted(set(assignment)) if cluster_idx != -1]
     return np.array(centroids)
 
 
