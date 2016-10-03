@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-'''
+"""
 This script makes pie charts of the distributions of taxonomic classifications of sequence data, as well as a t-SNE plot
 based on k-mer frequencies, and bar charts of cluster composition based on k-mers and taxonomic classification
-'''
+"""
 
 import os
 import logging
@@ -15,7 +15,10 @@ import argparse
 import learning
 import warnings
 import matplotlib
-matplotlib.use('Agg')
+try:
+    os.environ["DISPLAY"]
+except KeyError:
+    matplotlib.use('Agg')
 warnings.simplefilter('ignore', UserWarning)
 import matplotlib.pyplot as plt
 import pylab
@@ -54,7 +57,7 @@ class plot_maker(object):
         self.titles = ['Viruses', 'Baltimore Classification', 'Order', 'Family', 'Subfamily']
         self.markers = ['v', '^', '<', '>', '8', 's', 'p', 'h', 'H', 'D', 'd']
 
-        self.annotate_kinds = False
+        self.annotate_kinds = True
         self.tsne_figsize = (14, 11)
         self.bar_figsize = (12, 6)
 
@@ -63,15 +66,14 @@ class plot_maker(object):
 
 
     def make_all_plots(self):
-        '''
+        """
         This function makes all the plots
         :return: None
-        '''
+        """
 
         logger.info("Clustering points...")
         self.assignment = self.get_assignment()
-        logger.info("Loading lineages from: %s ..." % os.path.basename(self.lineage_file))
-        self.lineages = self.get_lineages()
+
 
         logger.info("Making pie plots of all data...")
         self.make_pie_charts()
@@ -82,14 +84,10 @@ class plot_maker(object):
         logger.info("Completed all plots.")
 
     def load_data_for_plotting(self):
-        '''
+        """
         This function gathers all the data necessary for subsequent plotting
-        :param fasta_file: Fasta file
-        :param lineage_file: Lineage file
-        :param feature_file: CSV file with features
-        :param tsne_file: CSV file with t-SNE output data
         :return: None
-        '''
+        """
         if self.output_directory and not os.path.isdir(self.output_directory):
             os.mkdir(self.output_directory)
 
@@ -123,13 +121,16 @@ class plot_maker(object):
             logger.error("2) Supply a feature file  with the -features flag and add the -do_tsne flag")
             exit(1)
 
+        logger.info("Loading lineages from: %s ..." % os.path.basename(self.lineage_file))
+        self.lineages = self.get_lineages()
+
     def make_pie_charts(self):
-        '''
+        """
         This function makes pie charts of the taxonomic lineage classification of ALL data
         :param lineages: A list of list representing all lineages to consider
         :param output_directory: The directory to drop these .s(a)v(a)g(e) files off in
         :return: None... just makes some pretty chill pie charts
-        '''
+        """
         for lineage_depth in [1, 2, 3]:
             kinds = [lineage[lineage_depth] for lineage in self.lineages]
             diversity = set(kinds)
@@ -160,21 +161,22 @@ class plot_maker(object):
             plt.close()
 
     def make_tsne_plot(self, file_name=None):
-        '''
+        """
         This function makes a t-SNE plot of phage datapoints and colors them based on clustering after t-SNE reduction.
         Also, the plot will circle clusters that are enriched fora  specific taxonomic classification, and will diplay
         the classification that it is enriched for as well as the percentae of the cluster made of
         :return: None... just makes a savage plot
-        '''
-        num_clusters = max(self.assignment)
+        """
+        num_clusters = 1 + max(self.assignment)
         colors = dc.get_colors(num_clusters)
         plt.figure(figsize=self.tsne_figsize)
+        plt.clf()
         axes = pylab.axes()
         ax = plt.subplot(111)
         box = ax.get_position()
         centroids = learning.get_centroids(self.tsne_data, self.assignment)
         used = []
-        for cluster in xrange(-1, num_clusters):
+        for cluster in set(self.assignment):
             which = np.arange(len(self.assignment))[self.assignment == cluster]
             cluster_points = self.tsne_data[which]
             cluster_lineages = np.array(self.lineages)[which]
@@ -189,17 +191,16 @@ class plot_maker(object):
                             radius = np.max(learning.distances(centroid, cluster_points))
                             text_loc = centroid * (1 + (radius + 3) / np.linalg.norm(centroid))
                             x = text_loc[0]
-                            y =text_loc[1]
-                            kind_text = "%.1f%% %s" % (100 * ratio, kind.replace('like', ' like '))
+                            y = text_loc[1]
+                            text_loc = [x, y]
+                            kind_text = "%.1f%% %s" % (100 * ratio, kind)
                             arrowprops = dict(facecolor='black', arrowstyle="->", connectionstyle="arc3")
-                            ax.annotate(kind_text, xy=centroid, xytext=text_loc, arrowprops=arrowprops, fontsize=7)
-                            plt.text(x, y, kind_text, fontsize=7)
+                            ax.annotate(kind_text, xy=centroid, xytext=text_loc, arrowprops=arrowprops, fontsize=12)
                         break
-
             label = ['unassigned', '%d' % cluster][cluster >= 0]
             color = colors[cluster]
             marker = self.markers[cluster % len(self.markers)]
-            plt.scatter(cluster_points[:, 0], cluster_points[:, 1], c=color,  edgecolor=color, marker=marker, label=label, s=0.5)
+            plt.scatter(cluster_points[:, 0], cluster_points[:, 1], c=color,  edgecolor=color, marker=marker, label=label, s=3)
 
         ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
         plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), prop={'size': 6}, title="Legend", fontsize=7, ncol=2)
@@ -209,11 +210,11 @@ class plot_maker(object):
         plt.close()
 
     def make_cluster_bar_charts(self):
-        '''
+        """
         This function makes a series of bar charts that displays the classification distribution of the lineages within
         the clusters given by the assignment.
         :return: None
-        '''
+        """
         num_clusters = max(self.assignment)
         logger.debug("Number of clusters: %d" % num_clusters)
         for lineage_depth in [1, 2, 3, 4]:
@@ -255,20 +256,25 @@ class plot_maker(object):
             plt.close()
 
     def get_lineages(self):
-        '''
+        """
         This function is for getting lineages out of the lineage file
         :return: A list of lineages
-        '''
+        """
         lineage_dict = fileIO.read_lineage_file(self.lineage_file)
-        lineages = [lineage_dict[id] for id in self.id_list]
-        lineages = tax.extend_lineages(lineages)
-        return lineages
+        if self.id_list:
+            lineages = [lineage_dict[id] for id in self.id_list]
+            lineages = tax.extend_lineages(lineages)
+            return lineages
+        else:
+            logger.warning("No id list in plotter object.")
+            logger.warning("Loaded lineages in order that they appear in: %s" % os.path.basename(self.lineage_file))
+            return lineage_dict.values()
 
     def get_assignment(self):
-        '''
+        """
         This function is for getting the cluster assignment of the data
         :return: Whatever data is returned by the dbscan wrapper function in learning.py
-        '''
+        """
         if self.dbscan:
             if self.cluster_on_tsne:
                 assignment = learning.dbscan(self.tsne_data, eps=self.eps, min_samples=self.min_samples)
@@ -283,32 +289,32 @@ class plot_maker(object):
 
     # filename getters
     def get_barchart_file_name(self, lineage_depth):
-        '''
+        """
         This function makes a filename for a cluster barchart
         :param lineage_depth:
         :return:
-        '''
+        """
         lineage_name = self.titles[lineage_depth].lower().split()[0]
         file_name = 'cluster_homology_{lineage_name}_.svg'.format(lineage_name=lineage_name)
         file_name = os.path.join(self.output_directory, file_name)
         return file_name
 
     def get_pie_filename(self, lineage_depth):
-        '''
+        """
         This function makes a filename for a pie-chart
         :param lineage_depth:
         :return:
-        '''
+        """
         lineage_name = self.titles[lineage_depth].lower().split()[0]
         file_name = 'phage_pie_{lineage_name}.svg'.format(lineage_name=lineage_name)
         file_name = os.path.join(self.output_directory, file_name)
         return file_name
 
     def get_tsne_filename(self):
-        '''
+        """
         This function makes a file path to a t-SNE data file within the output directoty
         :return: A file path
-        '''
+        """
         return os.path.join(self.output_directory, "tsne_data.csv")
 
     def get_tsne_plot_filename(self):
@@ -320,14 +326,13 @@ class plot_maker(object):
         return os.path.join(self.output_directory, "features.csv")
 
 
-
 def decide_files(plotter, args):
-    '''
+    """
     This function decides which files to store in the plotter object from the argparse object
     :param plotter: A plotter object
     :param args: An argparse parsed arguments object from this script
     :return: None
-    '''
+    """
 
     if args.output_directory:
         plotter.output_directory = args.output_directory
