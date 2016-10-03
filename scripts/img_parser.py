@@ -1,12 +1,13 @@
 #!/usr/bin/env python
-'''
+"""
 This script is used to parse files from JGI's Integrated Microbial Genomes (IMG) gene annotation pipeline
-'''
+"""
 
 import os
 import time
 import argparse
 import logging
+import basic
 
 __version__ = 1.0
 __author__ = "Jonathan Deaton (jdeaton@stanford.edu)"
@@ -17,9 +18,9 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 class contig():
-    '''
+    """
     This class is for contigs
-    '''
+    """
     def __init__(self, id, genes=None):
         self.id = id
         if genes:
@@ -32,9 +33,9 @@ class contig():
 
 
 class gene():
-    '''
+    """
     This class is for genes that have been predicted by Integrated Microbial Genomes (IMG) gene annotation pipeline
-    '''
+    """
     def __init__(self, ga_id='Missing', contig_id=-1, id=-1, product='Missing_Product', phylogeny='Missing_Phylogeny'):
         self.ga_id = ga_id
         self.contig_id = contig_id
@@ -42,24 +43,23 @@ class gene():
         self.product = product
         self.phylogeny = phylogeny
 
-
     def __str__(self):
         return ', '.join(map(str, (self.contig_id, self.id, self.product, self.phylogeny)))
 
 
 def make_gene_csv(IMG_directory, output_filename, contig_name_map, contig_ids=None, keyword=None):
-    '''
+    """
     This function parses files from a directory that contains a IMG COG, phylogeny, and product files and writes the
-    compiled data of contig id, phylogenies, and product into a tab seperated summary file
+    compiled data of contig id, phylogenies, and products into a tab-separated summary file
     :param IMG_directory: The directory that contains IMG files
     :param output_filename: The filename of the output summary file
     :param contig_ids: A list of contig IDs to search for
     :param keyword: Pass a string to this function so that only phylogenies with this keyword are used
     :return: None
-    '''
-    cog_file = search_for_file(IMG_directory, '.COG')
-    phylo_file = search_for_file(IMG_directory, '.phylodist')
-    product_file = search_for_file(IMG_directory, '.product.names')
+    """
+    cog_file = basic.search_for_file(IMG_directory, '.COG')
+    phylo_file = basic.search_for_file(IMG_directory, '.phylodist')
+    product_file = basic.search_for_file(IMG_directory, '.product.names')
 
     contig_map = parse_cog_file(cog_file, contig_name_map, contig_ids=contig_ids)
     logger.info("Parsed IMG file: %s" % os.path.basename(cog_file))
@@ -77,12 +77,12 @@ def make_gene_csv(IMG_directory, output_filename, contig_name_map, contig_ids=No
 
 
 def parse_cog_file(cog_file, contig_name_map, contig_ids=None):
-    '''
+    """
     This function parses a cog file and returns a dictionary that maps contig id to congig object
     :param cog_file: The file to parse
     :param contig_ids: A set of contig ids to search for
     :return: A list of gene objects that contain Ga ids, contig ids and gene numbers
-    '''
+    """
     lines = open(cog_file, 'r').readlines()
     contig_map = {}
     for line in lines:
@@ -99,14 +99,14 @@ def parse_cog_file(cog_file, contig_name_map, contig_ids=None):
 
 
 def parse_products(products_file, contig_map, contig_name_map, contig_ids=None):
-    '''
+    """
     This function parses an IMG product prediction file and places the products into the approapriate fields within the
     contig objects that are passed through the contig map
     :param products_file: An IMG  product prediction file
     :param contig_map: a dictionary that maps contig ID to contig objects, each of which has a gene dictionary
     :param contig_ids: A list of contig ids to search for within the file
     :return: A diction
-    '''
+    """
     lines = open(products_file, 'r').readlines()
     for line in lines:
         ga_string = line.split()[0]
@@ -126,7 +126,7 @@ def parse_products(products_file, contig_map, contig_name_map, contig_ids=None):
 
 
 def parse_phylodist(phylodist_file, contig_map, contig_name_map, contig_ids=None, keyword=None):
-    '''
+    """
     This function reads a phylogeny prediction file and puts phylogenies into the appropriate fields of the contig objects
     that are passed in withint the contig_map parameter
     :param phylodist_file: An IMG phylogeny prediction file
@@ -134,7 +134,7 @@ def parse_phylodist(phylodist_file, contig_map, contig_name_map, contig_ids=None
     :param contig_ids: A list of contig IDs to look for in the data
     :param keyword: Pass a string to this keyworded argument to only add phylogenies that contain that keyword
     :return: A dictionary that maps contig ID to phylogenies as a string format
-    '''
+    """
     lines = open(phylodist_file, 'r').readlines()
     for line in lines:
         ga_string = line.split()[0]
@@ -154,12 +154,12 @@ def parse_phylodist(phylodist_file, contig_map, contig_name_map, contig_ids=None
 
 
 def parse_Ga_string(Ga_string, contig_name_map):
-    '''
+    """
     This function parses the string in the first column of Integrated Microbial Genomes (IMG) gene prediction files.
     :param Ga_string: The string in the first column of IMG gene prediction files
     :return: A tuple containing the Ga id in the fist element, and the contig id as the second element,
     and an integer representing the id number of the id within the contig
-    '''
+    """
     splitted = Ga_string.split('_')
     Ga_id = splitted[0]
     starts = [1, 2, 0]
@@ -180,14 +180,14 @@ def parse_Ga_string(Ga_string, contig_name_map):
 
 
 def gene_csv_header(IMG_directory):
-    '''
+    """
     This function returns the header for a IMG compilation file
     :param IMG_directory: The directory used to generate the summary
     :return: A header that can be written at the top of an IMG summary file
-    '''
-    cog_file = search_for_file(IMG_directory, '.COG')
-    phylo_file = search_for_file(IMG_directory, '.phylodist')
-    product_file = search_for_file(IMG_directory, '.product.names')
+    """
+    cog_file = basic.search_for_file(IMG_directory, '.COG')
+    phylo_file = basic.search_for_file(IMG_directory, '.phylodist')
+    product_file = basic.search_for_file(IMG_directory, '.product.names')
     now = time.strftime("%Y-%m-%d %H:%M")
 
     header = ''
@@ -201,25 +201,14 @@ def gene_csv_header(IMG_directory):
     return header
 
 
-def search_for_file(directory, ending):
-    '''
-    This function returns the path of a file within a directory that has a given ending
-    :param directory: The directory to search in
-    :param ending: The ending of the file of interest
-    :return: A string with the full path of the file of interest
-    '''
-    files_in_directory = os.listdir(directory)
-    return os.path.join(directory, [file for file in files_in_directory if file.endswith(ending)][0])
-
-
 def string_phylogeny_content(phylogenies):
-    '''
+    """
     This function generates a string representation showing the percentile of the phylogenies provided that
     have the most common classification, for each phylogenetic depth
     :param phylogenies: A list of phylogenies, the elements of which are list of phylogenetic classifications (strings)
     :return: A string that shows the percentage of all phylogenies that are classified with the most common
     phylogeny for that classification deth.
-    '''
+    """
     phylogeny_percentages = phlogeny_percents(phylogenies)
     str_out = ''
     for tup in phylogeny_percentages:
@@ -229,7 +218,7 @@ def string_phylogeny_content(phylogenies):
 
 
 def phlogeny_percents(phylogenies):
-    '''
+    """
     This function makes a list of tuples that contain the proportion of phylogenies that are the mode of
     that classification depth
     :param phylogenies: A list of phylogenies, each of which are a list of classifications
@@ -237,7 +226,7 @@ def phlogeny_percents(phylogenies):
     the depth that are the mode of the phylogenies at that depth, in the first element, and the mode of the
     phylogenies at the depth in the second element of the tuple. The depth is given by the
     index of the tuple in the list.
-    '''
+    """
     num_genes = len(phylogenies)
     phylogeny_percentages = []
     max_depth = max([len(x) for x in phylogenies])
@@ -248,19 +237,10 @@ def phlogeny_percents(phylogenies):
                 kinds.append(phylogenies[i][depth])
             except:
                 pass
-        mode = list_mode(kinds)
+        mode = basic.list_mode(kinds)
         ratio = kinds.count(mode) / float(num_genes)
         phylogeny_percentages.append((ratio, mode))
     return phylogeny_percentages
-
-
-def list_mode(list):
-    '''
-    This function returns the mode of a list
-    :param list: A list of items
-    :return: The item which occurs most often in the list
-    '''
-    return max(set(list), key=list.count)
 
 
 if __name__ == '__main__':
