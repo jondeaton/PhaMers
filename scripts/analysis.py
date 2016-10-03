@@ -494,7 +494,7 @@ class results_analyzer(object):
 
             features_files = basic.search_for_file(self.input_directory, end='.csv')
             if len(features_files) == 1:
-                self.features_file = features_file[0]
+                self.features_file = features_files[0]
 
             virsorter_directories = basic.search_for_file(self.input_directory, start='VirSorter')
             if len(virsorter_directories) == 1:
