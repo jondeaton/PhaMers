@@ -48,6 +48,7 @@ logger.setLevel(logging.DEBUG)
 __email__ = "jdeaton@stanford.edu"
 Entrez.email = __email__
 
+
 class phage():
     """
     This class is used to store data about putative phage predicted by VirSorter
@@ -123,86 +124,7 @@ class results_analyzer(object):
         self.fn_color = 'red'
         self.tn_color = 'green'
 
-    def load_data(self):
-        """
-        This function loads a bunch of data into the analyzer object that will be used for subsequent analyses
-        :return: None
-        """
-        self.lineages = self.get_lineages()
-        self.lineage_color_map = self.get_lineage_colors()
-        self.lineage_dict = fileIO.read_lineage_file(self.phage_lineage_file, extent=True)
-
-        self.id_header_map = get_id_header_map(self.fasta_file)
-        self.contig_ids, self.contig_features = fileIO.read_feature_file(self.features_file, normalize=True)
-        self.contig_category_map = self.get_contig_category_map()
-        self.phamer_dict = phamer.read_phamer_output(self.phamer_summary)
-
-        self.phage_ids, self.phage_features = fileIO.read_feature_file(self.phage_features_file, normalize=True)
-        self.num_reference_phage = len(self.phage_ids)
-
-        self.truth_table = self.get_virsorter_phamer_truth_table()
-        self.img_map = self.get_img_map()
-        self.virsroter_map = {phage.id: phage.category for phage in fileIO.read_virsorter_file(self.virsorter_summary)}
-
-    def get_lineage_colors(self):
-        """
-        This function makes a mapping of taxonomic classification to color so that multiple plots can be colored
-        consistently
-        :param lineages: A list of taxonomic lineages to make a color mapping for
-        :return: A map of taxonomic classification to color. The color is a 1x3 numpy array representing a RGB color
-        """
-        diversity = set()
-        for depth in xrange(tax.deepest_classification(self.lineages)):
-            diversity |= set([lineage[depth] for lineage in self.lineages])
-
-        diversity = list(diversity)
-        colors = distinguishable_colors.get_colors(len(diversity))
-        color_map = {diversity[i]:colors[i] for i in xrange(len(diversity))}
-        return color_map
-
-    def get_contig_category_map(self):
-        """
-        This function takes a VirSroter summary file and creates a dictionary that maps contig ID to VirSorter category
-        :param virsorter_summary: The VirSorter summary file name as a string
-        :return: A dictionary that mapping contig ID to VirSorter category
-        """
-        lines = open(self.virsorter_summary, 'r').readlines()
-        category_map = {}
-        category = 0
-        for line in lines:
-            if line.startswith('##') and 'category' in line:
-                category = int(line[3])
-            elif not line.startswith('##'):
-                id = id_parser.get_contig_id(line.split(',')[0])
-                category_map[id] = category
-        return category_map
-
-    def get_virsorter_phamer_truth_table(self):
-        """
-        This function finds the true positives, false positives, false negatives, and true positives for phage
-        predictions from phamer and from VirSorter
-        :return: A tuple of lists of IDs for true positives, false positives, false negatives, and true positives in that order
-        """
-        phamer_ids = [id for id in self.phamer_dict.keys() if self.phamer_dict[id] >= self.phamer_score_threshold]
-
-        vs_phage = fileIO.read_virsorter_file(self.virsorter_summary)
-        for phage in vs_phage:
-            if phage.id in self.phamer_dict.keys():
-                phage.phamer_score = self.phamer_dict[phage.id]
-        vs_ids = [phage.id for phage in vs_phage]
-
-        true_positives = [id for id in self.phamer_dict.keys() if id in vs_ids and id in phamer_ids]
-        false_positives = [id for id in self.phamer_dict.keys() if id in phamer_ids and id not in vs_ids]
-        false_negatives = [id for id in self.phamer_dict.keys() if id in vs_ids and id not in phamer_ids]
-        true_negatives = [id for id in self.phamer_dict.keys() if id not in phamer_ids and id not in vs_ids]
-
-        logger.info("%d true positives" % len(true_positives))
-        logger.info("%d false positives" % len(false_positives))
-        logger.info("%d false negatives" % len(false_negatives))
-        logger.info("%d true negatives" % len(true_negatives))
-
-        return true_positives, false_positives, false_negatives, true_negatives
-
+    # Plotting Methods
     def make_pie_lineage_charts(self, id):
         """
         This function makes several lineage pie charts contig based on nearby phage points
@@ -481,6 +403,95 @@ class results_analyzer(object):
         for file in self.genbank_files:
             prepare_for_SnapGene(file, os.path.join(self.genbank_output_directory, 'gb_files'))
 
+    # Basic Functions
+    def load_data(self):
+        """
+        This function loads necessary data into the analyzer object that will be used for subsequent analyses. It gets
+        data from the files who's paths are stored as attributes in side the object.
+        :return: None
+        """
+        self.id_header_map = get_id_header_map(self.fasta_file)
+        self.contig_ids, self.contig_features = fileIO.read_feature_file(self.features_file, normalize=True)
+        self.contig_category_map = self.get_contig_category_map()
+        self.phamer_dict = phamer.read_phamer_output(self.phamer_summary)
+
+        self.phage_ids, self.phage_features = fileIO.read_feature_file(self.phage_features_file, normalize=True)
+        self.num_reference_phage = len(self.phage_ids)
+        self.lineage_dict = fileIO.read_lineage_file(self.lineage_file, extend=True)
+        self.lineages = self.get_lineages()
+        self.lineage_color_map = self.get_lineage_colors()
+
+        self.truth_table = self.get_virsorter_phamer_truth_table()
+        self.img_map = self.get_img_map()
+        self.virsroter_map = {phage.id: phage.category for phage in fileIO.read_virsorter_file(self.virsorter_summary)}
+
+    def get_lineages(self):
+        """
+        This function returns lineages
+        :return: A list of pre-extended lineages that are in the same order as the phage ids read
+        from a features file
+        """
+        return np.array([self.lineage_dict[id] for id in self.phage_ids])
+
+    def get_lineage_colors(self):
+        """
+        This function makes a mapping of taxonomic classification to color so that multiple plots can be colored
+        consistently
+        :return: A map of taxonomic classification to color. The color is a 1x3 numpy array representing a RGB color
+        """
+        diversity = set()
+        for depth in xrange(tax.deepest_classification(self.lineages)):
+            diversity |= set([lineage[depth] for lineage in self.lineages])
+
+        diversity = list(diversity)
+        colors = distinguishable_colors.get_colors(len(diversity))
+        color_map = {diversity[i]:colors[i] for i in xrange(len(diversity))}
+        return color_map
+
+    def get_contig_category_map(self):
+        """
+        This function takes a VirSroter summary file and creates a dictionary that maps contig ID to VirSorter category
+        :param virsorter_summary: The VirSorter summary file name as a string
+        :return: A dictionary that mapping contig ID to VirSorter category
+        """
+        lines = open(self.virsorter_summary, 'r').readlines()
+        category_map = {}
+        category = 0
+        for line in lines:
+            if line.startswith('##') and 'category' in line:
+                category = int(line[3])
+            elif not line.startswith('##'):
+                id = id_parser.get_contig_id(line.split(',')[0])
+                category_map[id] = category
+        return category_map
+
+    def get_virsorter_phamer_truth_table(self):
+        """
+        This function finds the true positives, false positives, false negatives, and true positives for phage
+        predictions from phamer and from VirSorter
+        :return: A tuple of lists of IDs for true positives, false positives, false negatives, and true positives in that order
+        """
+        phamer_ids = [id for id in self.phamer_dict.keys() if self.phamer_dict[id] >= self.phamer_score_threshold]
+
+        vs_phage = fileIO.read_virsorter_file(self.virsorter_summary)
+        for phage in vs_phage:
+            if phage.id in self.phamer_dict.keys():
+                phage.phamer_score = self.phamer_dict[phage.id]
+        vs_ids = [phage.id for phage in vs_phage]
+
+        true_positives = [id for id in self.phamer_dict.keys() if id in vs_ids and id in phamer_ids]
+        false_positives = [id for id in self.phamer_dict.keys() if id in phamer_ids and id not in vs_ids]
+        false_negatives = [id for id in self.phamer_dict.keys() if id in vs_ids and id not in phamer_ids]
+        true_negatives = [id for id in self.phamer_dict.keys() if id not in phamer_ids and id not in vs_ids]
+
+        logger.info("%d true positives" % len(true_positives))
+        logger.info("%d false positives" % len(false_positives))
+        logger.info("%d false negatives" % len(false_negatives))
+        logger.info("%d true negatives" % len(true_negatives))
+
+        return true_positives, false_positives, false_negatives, true_negatives
+
+    # File Location
     def find_input_files(self):
         """
         This function finds input files within the input directory field of this object based on file names
@@ -512,7 +523,7 @@ class results_analyzer(object):
         """
         if self.data_directory and os.path.isdir(self.data_directory):
             self.phage_features_file = os.path.join(self.data_directory, "reference_features", "positive_features.csv")
-            self.phage_lineages_file = os.path.join(self.data_directory, "phage_lineages.txt")
+            self.lineage_file = os.path.join(self.data_directory, "phage_lineages.txt")
 
     def find_genbank_files(self):
         """
