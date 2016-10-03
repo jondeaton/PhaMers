@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-'''
+"""
 cross_validate.py
 This script is for doing N-fold cross validation of the Phamer scoring algorithm
-'''
+"""
 
 import os
 import argparse
@@ -43,14 +43,15 @@ class cross_validator(object):
         self.N = 20
         self.method = None
         self.scoring_function = None
+        self.score_threshold = 0
         self.roc_figsize = (9, 7)
         self.output_directory = "cross_validation"
 
     def cross_validate(self):
-        '''
+        """
         This function is for cross validation of a scoring metric
         :return: The scores for the gold standard positive and negative points
-        '''
+        """
         positive_asmt = np.arange(self.positive_data.shape[0]) % self.N
         negative_asmt = np.arange(self.negative_data.shape[0]) % self.N
 
@@ -77,13 +78,13 @@ class cross_validator(object):
         return self.positive_scores, self.negative_scores
 
     def plot_score_distributions(self):
-        '''
+        """
         This function makes nice looking distribution plots of postiive and negative_data scores
         :param positive_scores: The scores for the positive data
         :param negative_scores: The scores for the negative data
         :param file_name: The filename to save the plot to
         :return: None
-        '''
+        """
         fig, ax = plt.subplots()
         ll = min([min(self.negative_scores), min(self.positive_scores)])
         ul = max([max(self.negative_scores), max(self.positive_scores)])
@@ -107,10 +108,10 @@ class cross_validator(object):
         plt.close()
 
     def plot_ROC(self):
-        '''
+        """
         This function makes a receiver operator characteristic curve plot
         :return: None
-        '''
+        """
         fpr, tpr, roc_auc = learning.predictor_performance(self.positive_scores, self.negative_scores)
         plt.figure(figsize=self.roc_figsize)
         plt.plot(fpr, tpr, label='AUC = %0.3f' % roc_auc)
@@ -127,11 +128,30 @@ class cross_validator(object):
         plt.savefig(file_name)
         plt.close()
 
+    def make_summary_file(self):
+        """
+        This function makes a summary file with all the information about the cross validation run
+        :return: None
+        """
+        summary_text = "# Cross Validation Prediction Metrics"
+        file_name = self.get_summary_filename()
+        with open(file_name, 'w') as f:
+            f.write(summary_text + "\n")
+            f.close()
+        metrics_series = learning.get_predictor_metrics(self.positive_scores, self.negative_scores, threshold=self.score_threshold)
+        metrics = ['tp', 'fp', 'fn', 'tn', 'tpr', 'fpr', 'fnr', 'tnr', 'ppv', 'npv', 'fdr', 'acc']
+        metric_names = ["True Positives", "False Positives", "False Negatives", "True Negatives",
+                        "True Positive Rate", "False Positive Rate", "False Negative Rate", "True Negative Rate"
+                        "Positive Predictive Value", "Negative Predictive Value", "False Discovery Rate",
+                        "Accuracy"]
+        file_name = self.get_summary_filename()
+        metrics_series.to_csv(file_name, sep="\t", mode='a')
+
     def cross_validate_all_algorithms(self):
-        '''
+        """
         For cross validation of several different learning algorithms on a particular set of data
         :return: None
-        '''
+        """
         plt.figure(figsize=self.roc_figsize)
         for method in self.methods:
             self.method = method
@@ -167,6 +187,8 @@ class cross_validator(object):
     def get_combined_roc_curve_filename(self):
         return os.path.join(self.output_directory, "all_algorithms_roc.svg")
 
+    def get_summary_filename(self):
+        return os.path.join(self.output_directory, "cross_validation_summary.txt")
 
 if __name__ == '__main__':
 
@@ -219,6 +241,8 @@ if __name__ == '__main__':
     validator.plot_score_distributions()
     logger.info("Plotting ROC curve...")
     validator.plot_ROC()
+    logger.info("Making summary file...")
+    validator.make_summary_file()
 
     if args.test_all:
         logger.info("Validating all algorithms...")
