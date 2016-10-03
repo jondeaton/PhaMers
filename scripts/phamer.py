@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-'''
+"""
 Phamer: Phage-finding algorithm that uses k-mer frequency comparison and t-SNE
 Jonathan Deaton, Quake Lab, Stanford University, 2016
-'''
+"""
 
 import os
 import argparse
@@ -83,11 +83,11 @@ class phamer_scorer(object):
         self.tsne_figsize = (30, 24)
 
     def load_data(self):
-        '''
+        """
         This function loads the relevant data into a phamer_scorer object
         :param args: An argparse parsed arguments object from this script
         :return: None. scorer object is modified in place
-        '''
+        """
         # loading reference data
         if self.positive_features and os.path.exists(self.positive_features):
             logger.info("Reading positive features from: %s" % os.path.basename(self.positive_features))
@@ -125,11 +125,11 @@ class phamer_scorer(object):
             scorer.screen_by_length()
 
     def screen_by_length(self, length_requirement=None):
-        '''
+        """
         This function screens input data by total length
         :param length_requirement: Minimum length requried for sequences
         :return: None
-        '''
+        """
         if length_requirement:
             self.length_requirement = length_requirement
         unknown_ids, unknown_sequences = fileIO.read_fasta(self.fasta_file)
@@ -138,10 +138,10 @@ class phamer_scorer(object):
         self.data_ids = np.array(long_ids)
 
     def equalize_reference_data(self):
-        '''
+        """
         This function ensures that there are the same number of negative and positive data poitns
         :return: None
-        '''
+        """
         num_positive = self.positive_data.shape[0]
         num_negative = self.negative_data.shape[0]
         num_ref = min(num_positive, num_negative)
@@ -154,10 +154,10 @@ class phamer_scorer(object):
         self.num_negative = num_ref
 
     def score_points(self):
-        '''
+        """
         This function scores a set of points against positive and negative data-points.
         :return: A list of scores as a numpy array
-        '''
+        """
         # Setting up some data
         self.num_points = self.data_points.shape[0]
         self.num_positive = self.positive_data.shape[0]
@@ -175,13 +175,13 @@ class phamer_scorer(object):
 
     # Scoring Algorithm Functions
     def proximity_metric(self, point, nearest_positive, nearest_negative):
-        '''
+        """
         This function scores a point for being near positive and away from negative
         :param point: A numpy array with the point to be scored
         :param nearest_positive: A numpy array containing the centroid of the nearest positive cluster
         :param nearest_negative: A numpy array containing the centroid of the nearest negative cluster
         :return: A score for that point. A higher score is if the point is near the positive and far from the negative
-        '''
+        """
         error_neg = np.linalg.norm(point - nearest_negative)
         error_pos = np.linalg.norm(point - nearest_positive)
         x = (error_neg - error_pos) / (error_pos + error_neg)
@@ -189,10 +189,10 @@ class phamer_scorer(object):
         return x
 
     def dbscan_score_points(self):
-        '''
+        """
         Scoring function for the dbscan method
         :return: A list of scores corresponding to the points
-        '''
+        """
         positive_assignment = learning.dbscan(self.positive_data, self.eps[0], self.min_samples[0])
         negative_assignment = learning.dbscan(self.negative_data, self.eps[1], self.min_samples[1])
 
@@ -217,10 +217,10 @@ class phamer_scorer(object):
         return scores
 
     def kmeans_score_points(self):
-        '''
+        """
         Scoring function for the kmeans method
         :return: A list of scores corresponding to the points
-        '''
+        """
         positive_assignment = learning.kmeans(self.positive_data, self.k_clusters)
         negative_assignment = learning.kmeans(self.negative_data, self.k_clusters)
         positive_centroids = learning.get_centroids(self.positive_data, positive_assignment)
@@ -235,28 +235,28 @@ class phamer_scorer(object):
         return scores
 
     def svm_score_points(self):
-        '''
+        """
         Scoring function for the kmeans method
         :return: A list of scores corresponding to the points
-        '''
+        """
         machine = learning.svm.NuSVC()
         machine.fit(self.train, self.labels)
         scores = machine.predict(self.data_points)
         return np.array(scores)
 
     def knn_score_points(self):
-        '''
+        """
         Scoring function for the knn method
         :return: A list of scores corresponding to the points
-        '''
+        """
         scores = [learning.knn(point, self.train, self.labels) for point in self.data_points]
         return 2 * (np.array(scores) - 0.5)
 
     def density_score_points(self):
-        '''
+        """
         Scoring function for the density method
         :return: A list of scores corresponding to the points
-        '''
+        """
         scores = np.zeros(self.num_points)
         for i in xrange(self.num_points):
             point = self.data_points[i]
@@ -267,10 +267,10 @@ class phamer_scorer(object):
         return scores
 
     def silhouette_score_points(self):
-        '''
+        """
         Scoring function for the silhouette method
         :return: A list of scores corresponding to the points
-        '''
+        """
         positive_appended = np.append(self.positive_data, self.data_points, axis=0)
         negative_appended = np.append(self.positive_data, self.data_points, axis=0)
         positive_assignment = learning.kmeans(positive_appended, 86)
@@ -281,10 +281,10 @@ class phamer_scorer(object):
         return scores
 
     def combo_score_points(self):
-        '''
+        """
         Scoring function for the combo method
         :return: A list of scores corresponding to the points
-        '''
+        """
         self.scoring_method = 'knn'
         knn_scores = self.score_points()
         self.scoring_method = 'kmeans'
@@ -294,20 +294,20 @@ class phamer_scorer(object):
 
     # Making output files
     def make_summary_file(self, args=None):
-        '''
+        """
         This function is for saving phamer scores to file
         :param args: An argparse parserd arguments
         :return: None
-        '''
+        """
         self.phamer_output_filename = self.get_phamer_output_filename()
         fileIO.save_phamer_scores(self.data_ids, self.scores, self.phamer_output_filename, args=args)
 
     def save_tsne_data(self, args=None):
-        '''
+        """
         This function saves t-SNE data
         :param args:
         :return:
-        '''
+        """
         tsne_file = self.get_tsne_output_filename()
         ids = np.concatenate((self.data_ids, self.positive_ids, self.negative_ids))
         chops = (len(self.data_ids), len(self.positive_ids), len(self.negative_ids))
@@ -315,10 +315,10 @@ class phamer_scorer(object):
 
     # t-SNE
     def do_tsne(self, perplexity=30):
-        '''
+        """
         This function does t-SNE on the positive, negative, and unknown data provided
         :return: None
-        '''
+        """
         all_data = np.vstack((self.data_points, self.positive_data, self.negative_data))
         # This is to save memory and potentially prevent memory error
         del self.data_points
@@ -334,13 +334,13 @@ class phamer_scorer(object):
         del all_data
 
     def make_tsne_plot(self, tsne_file=None):
-        '''
+        """
         This function makes a t-SNE plot of all points
         :param positive: The 2D t-SNE positive (phage) points to plot in a numpy array
         :param negative: The 2D t-SNE negative points to plot in a numpy array
         :param unknown: The 2D t-SNE unknown points to plot in a numpy array
         :return: None
-        '''
+        """
         tsne_data_points, tsne_positive, tsne_negative = basic.chop(self.tsne_data, [self.num_unknown, self.num_positive, self.num_negative])
         if tsne_file and os.path.isfile(tsne_file):
             logger.debug("Using t-SNE data from: %s" % os.path.basename(tsne_file))
@@ -372,10 +372,10 @@ class phamer_scorer(object):
 
     # Functions for finding files
     def find_data_files(self):
-        '''
+        """
         This function finds data files in their proper location from the data directory
         :return: None
-        '''
+        """
         # These are file locations in their default places
         self.positive_fasta = os.path.join(self.data_directory, "all_phage_genomes.fasta")
         self.negative_fasta = os.path.join(self.data_directory, "bacteria_genomes_2")
@@ -383,10 +383,10 @@ class phamer_scorer(object):
         self.negative_features_file = os.path.join(self.data_directory, "reference_features", "negative_features.csv")
 
     def find_input_files(self):
-        '''
+        """
         This function finds input files if the input directory is properly set up
         :return: None
-        '''
+        """
         if self.input_directory and os.path.isdir(self.input_directory):
             fasta_files = [file for file in os.listdir(self.input_directory) if file.endswith('.fasta') or file.endswith('.fa')]
             if len(fasta_files) == 1:
@@ -410,15 +410,15 @@ class phamer_scorer(object):
         return os.path.join(self.output_directory, "tsne_plot_phamer.svg")
 
 def score_points(scoring_data, positive_training_data, negative_training_data, method=None):
-    '''
+    """
     This is a function that will score data in the same way that the phamer_scoring object would but this
     works as a function with arguments rathern than as the method of an object. This is used in the cross validation
     script so that testing can be done with the same exact method of
     :param scoring_data: Data to score in a numpy array (rows = items)
-    :param pos_training_data: Positive data in a numpy array
-    :param neg_training_data: Negative data in a numpy array
+    :param positive_training_data: Positive data in a numpy array
+    :param negative_training_data: Negative data in a numpy array
     :return: A list of scores as a numpy array
-    '''
+    """
     scorer = phamer_scorer()
     if method:
         scorer.scoring_method = method
@@ -428,12 +428,12 @@ def score_points(scoring_data, positive_training_data, negative_training_data, m
     return scorer.score_points()
 
 def decide_files(scorer, args):
-    '''
+    """
     This function decides which data files to use, based on those which were provided by the user
     :param scorer: Phamer scorer object
     :param args: Argparse parsed arguments object
     :return: None
-    '''
+    """
 
     if args.kmer_length:
         # This isn't a file but still needs to be loaded in if specified
