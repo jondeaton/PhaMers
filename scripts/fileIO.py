@@ -238,10 +238,6 @@ def read_phamer_output(filename):
             score_dict[id] = float(line.split()[1])
     return score_dict
 
-if __name__ == '__main__':
-    print "This is a module, not meant to be run from the command line."
-
-
 # VirSorter
 def read_virsorter_file(filename, dataset=''):
     """
@@ -263,3 +259,10 @@ def read_virsorter_file(filename, dataset=''):
         else:
             vs_phage.append(phage(kind, category, dataset, line))
     return vs_phage
+
+
+if __name__ == '__main__':
+    print "This is a module, not meant to be run from the command line."
+
+
+
