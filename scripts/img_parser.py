@@ -47,15 +47,14 @@ class gene():
         return ', '.join(map(str, (self.contig_id, self.id, self.product, self.phylogeny)))
 
 
-def make_gene_csv(IMG_directory, output_filename, contig_name_map, contig_ids=None, keyword=None):
+def get_contig_map(IMG_directory, contig_name_map, contig_ids=None, keyword=None):
     """
     This function parses files from a directory that contains a IMG COG, phylogeny, and product files and writes the
-    compiled data of contig id, phylogenies, and products into a tab-separated summary file
+    compiled data of contig id, phylogenies, and produces a mapping of id to contig object.
     :param IMG_directory: The directory that contains IMG files
-    :param output_filename: The filename of the output summary file
     :param contig_ids: A list of contig IDs to search for
     :param keyword: Pass a string to this function so that only phylogenies with this keyword are used
-    :return: None
+    :return: A map of contig ID to contig object
     """
     cog_file = basic.search_for_file(IMG_directory, '.COG')
     phylo_file = basic.search_for_file(IMG_directory, '.phylodist')
@@ -67,7 +66,20 @@ def make_gene_csv(IMG_directory, output_filename, contig_name_map, contig_ids=No
     logger.info("Parsed IMG file: %s" % os.path.basename(phylo_file))
     parse_products(product_file, contig_map, contig_name_map, contig_ids=contig_ids)
     logger.info("Parsed IMG file: %s" % os.path.basename(product_file))
+    return contig_map
 
+
+def make_gene_csv(IMG_directory, output_filename, contig_name_map, contig_ids=None, keyword=None):
+    """
+    This function parses files from a directory that contains a IMG COG, phylogeny, and product files and writes the
+    compiled data of contig id, phylogenies, and products into a tab-separated summary file
+    :param IMG_directory: The directory that contains IMG files
+    :param output_filename: The filename of the output summary file
+    :param contig_ids: A list of contig IDs to search for
+    :param keyword: Pass a string to this function so that only phylogenies with this keyword are used
+    :return: None
+    """
+    contig_map = get_contig_map(IMG_directory, contig_name_map, contig_ids=contig_ids, keyword=keyword)
     f = open(output_filename, 'w')
     header = gene_csv_header(IMG_directory)
     f.write(header)
@@ -242,9 +254,7 @@ def phlogeny_percents(phylogenies):
         phylogeny_percentages.append((ratio, mode))
     return phylogeny_percentages
 
-
 if __name__ == '__main__':
-
 
     script_description = 'This script parses IMG files'
     parser = argparse.ArgumentParser(description=script_description, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -258,6 +268,8 @@ if __name__ == '__main__':
     contig_id = args.contig_id
     lines = [line for line in open(summary_file, 'r').readlines() if line.startswith(str(contig_id) + ',')]
 
+
+    # todo: this is weird and should be fixed... maybe pipe it into a file
     print "Gene Predictions: "
     i = 1
     phylogenies = []
