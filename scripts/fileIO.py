@@ -112,7 +112,7 @@ def read_feature_file(feature_file, normalize=False, id=None, old=False):
     A function for reading a k-mer file
     :param kmer_file: The file name of the k-mer file, the file should be in a csv format
     :param normalize: Set to true to normalize the features by row sum
-    :param id: Get on ly the kmer count vector for a given ID
+    :param id: Get only the kmer count vector for a given ID
     :param old: For reading legacy formatted k-mer files without ids in the first columns
     :return: A numpy array containing the k-mer count data from that file
     """
@@ -127,8 +127,11 @@ def read_feature_file(feature_file, normalize=False, id=None, old=False):
     if normalize:
         kmer.normalize_counts(features, inplace=True)
 
+    # Convert integer IDs from strings to integers, if possible
+    ids = np.array([int(str_id) for str_id in ids if basic.represents_int(str_id)])
+
     if id:
-        return features[ids.index(id)]
+        return features[ids == id]
     else:
         return ids, features
 
@@ -190,6 +193,8 @@ def read_tsne_file(tsne_file):
     :return: Either the raw data in a numpy array, or if chopped, a list of numpy arrays in the order unknown, positive
     and then negative
     """
+    if not tsne_file:
+        raise ValueError("t-SNE file is None")
     data = np.loadtxt(tsne_file, dtype=str, delimiter=',')
     ids = list(data[:, 0].transpose())
     for i in xrange(len(ids)):
@@ -262,7 +267,7 @@ def read_virsorter_file(filename, dataset=''):
 
 
 if __name__ == '__main__':
-    print "This is a module, not meant to be run from the command line."
+    print "This is a python module, not meant to be run from the command line."
 
 
 
