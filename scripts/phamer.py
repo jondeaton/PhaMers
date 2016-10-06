@@ -16,6 +16,7 @@ except KeyError:
 warnings.simplefilter('ignore', UserWarning)
 import matplotlib.pyplot as plt
 import logging
+from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 
 # My stuff
@@ -79,7 +80,11 @@ class phamer_scorer(object):
         self.positive_min_samples = 2
         self.negative_min_samples = 2
         self.eps = [self.positive_eps, self.negative_eps]
-        self.min_samples= [self.positive_min_samples, self.negative_min_samples]
+        self.min_samples = [self.positive_min_samples, self.negative_min_samples]
+
+        self.tsne_perplexity = 30
+        self.pca_preprocess = True
+        self.pca_preprocess_red = 50
         self.tsne_figsize = (30, 24)
 
     def load_data(self):
@@ -130,16 +135,19 @@ class phamer_scorer(object):
         :param length_requirement: Minimum length requried for sequences
         :return: None
         """
+        # todo: this doens't work
         if length_requirement:
             self.length_requirement = length_requirement
         unknown_ids, unknown_sequences = fileIO.read_fasta(self.fasta_file)
-        long_ids = [unknown_ids[i] for i in xrange(len(unknown_ids)) if len(unknown_sequences) >= self.length_requirement]
+        logger.debug("%d points before screening" % self.data_points.shape[0])
+        long_ids = [unknown_ids[i] for i in xrange(len(unknown_ids)) if len(unknown_sequences[i]) >= self.length_requirement]
         self.data_points = self.data_points[np.in1d(self.data_ids, long_ids)]
         self.data_ids = np.array(long_ids)
+        logger.debug("%d points after screening" % self.data_points.shape[0])
 
     def equalize_reference_data(self):
         """
-        This function ensures that there are the same number of negative and positive data poitns
+        This function ensures that there are the same number of negative and positive data points
         :return: None
         """
         num_positive = self.positive_data.shape[0]
@@ -236,7 +244,7 @@ class phamer_scorer(object):
 
     def svm_score_points(self):
         """
-        Scoring function for the kmeans method
+        Scoring function for the k-means method
         :return: A list of scores corresponding to the points
         """
         machine = learning.svm.NuSVC()
@@ -249,8 +257,7 @@ class phamer_scorer(object):
         Scoring function for the knn method
         :return: A list of scores corresponding to the points
         """
-        scores = [learning.knn(point, self.train, self.labels) for point in self.data_points]
-        return 2 * (np.array(scores) - 0.5)
+        return 2 * learning.knn(self.data_points, self.train, self.labels, k=3)
 
     def density_score_points(self):
         """
@@ -314,7 +321,7 @@ class phamer_scorer(object):
         fileIO.save_tsne_data(tsne_file, self.tsne_data, ids, args=args, chops=chops)
 
     # t-SNE
-    def do_tsne(self, perplexity=30):
+    def do_tsne(self):
         """
         This function does t-SNE on the positive, negative, and unknown data provided
         :return: None
@@ -324,8 +331,13 @@ class phamer_scorer(object):
         del self.data_points
         del self.positive_data
         del self.negative_data
-        logger.debug("Initiating t-SNE...")
-        self.tsne_data = TSNE(perplexity=perplexity, verbose=True).fit_transform(all_data)
+        if self.pca_preprocess:
+            logger.info("Pre-processing with PCA...")
+            # This is to reduce memory requirement
+            pca_data = PCA(n_components=50).fit_transform(all_data)
+            self.tsne_data = TSNE(perplexity=self.tsne_perplexity, verbose=True).fit_transform(pca_data)
+        else:
+            self.tsne_data = TSNE(perplexity=self.tsne_perplexity, verbose=True).fit_transform(all_data)
         logger.info("t-SNE complete.")
 
         logger.debug("Rearranging data...")
@@ -538,9 +550,11 @@ if __name__ == '__main__':
     scorer.make_summary_file(args=args)
 
     # t-SNE
-    if args.do_tsne and args.tsne_file:
-        logger.info("Performing t-SNE")
-        scorer.to_tsne(perplexity=args.perplexity)
+    if args.do_tsne:
+        logger.info("Performing t-SNE...")
+        if args.perplexity:
+            scorer.tsne_perplexity = args.perplexity
+        scorer.do_tsne()
 
     # Plotting
     if args.plot_tsne:
