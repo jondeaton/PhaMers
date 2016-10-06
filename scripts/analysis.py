@@ -211,9 +211,12 @@ class results_analyzer(object):
         This makes a plot that compares results from Phamer and VirSorter by displaying a t-SNE plot
         :return: None... just makes a cool plot
         """
-        true_positives, false_positives, false_negatives, true_negatives = self.truth_table
+        if not self.tsne_file:
+            logger.error("No t-SNE file found. Did not make scatter plot.")
+            return
 
         ids, tsne_data, chops = fileIO.read_tsne_file(self.tsne_file)
+        true_positives, false_positives, false_negatives, true_negatives = self.truth_table
         contig_tsne_ids, phage_tsne_ids, bacteria_tsne_ids = phamer.chop(ids, chops)
         contig_tsne, phage_tsne, bacteria_tsne = phamer.chop(tsne_data, chops)
 
@@ -372,8 +375,9 @@ class results_analyzer(object):
         This function prepares all of the genbank files in this object for viewing with SnapGene
         :return: None
         """
+        output = self.get_genbank_output_directory()
         for file in self.genbank_files:
-            prepare_for_SnapGene(file, os.path.join(self.genbank_output_directory, 'gb_files'))
+            prepare_for_SnapGene(file, output)
 
     # Basic Functions
     def load_data(self):
@@ -533,7 +537,7 @@ class results_analyzer(object):
         This function gets a directory for where GenBank files shold be output to
         :return:
         """
-        return os.path.join(self.output_directory, "analyses", "genbank_files")
+        return os.path.join(self.output_directory, "analysis", "genbank_files")
 
     def get_pie_charts_output_directory(self):
         """
@@ -654,17 +658,20 @@ def prepare_for_SnapGene(genbank_file, destination):
     else:
         putative_phage_gb = []
 
+    if destination and not os.path.isdir(destination):
+        os.mkdir(destination)
+
     for phage_gb in putative_phage_gb:
         contig_header = phage_gb.strip().split('\n')[0].split()[1]
         logger.info('Contig: %s' % contig_header)
-        filename = 'VS_SuperContig_%d_ID_%d.gb' % (id_parser.get_contig_name(contig_header), id_parser.get_contig_id(contig_header))
-        new_file = os.path.join(destination, filename)
-        f = open(new_file, 'w')
+        new_gb_file = 'VS_SuperContig_%d_ID_%d.gb' % (id_parser.get_contig_name(contig_header), id_parser.get_contig_id(contig_header))
+        new_gb_file = os.path.join(destination, new_gb_file)
+        f = open(new_gb_file, 'w')
         f.write(phage_gb)
         f.close()
-        gene_prod_dict = get_gene_product_dict(new_file)
+        gene_prod_dict = get_gene_product_dict(new_gb_file)
 
-        f = open(new_file, 'r')
+        f = open(new_gb_file, 'r')
         contents = f.read()
         f.close()
 
@@ -672,7 +679,7 @@ def prepare_for_SnapGene(genbank_file, destination):
             contents = contents.replace('/gene="%s"' % gene, '/gene="%s"' % gene_prod_dict[gene])
         contents = contents.strip() + '\n//'
 
-        f = open(new_file, 'w')
+        f = open(new_gb_file, 'w')
         f.write(contents)
         f.close()
 
@@ -724,10 +731,13 @@ def decide_files(analyzer, args):
     # Outputs
     if args.output_directory:
         analyzer.output_directory = args.output_directory
+    elif args.input_directory:
+        analyzer.output_directory = os.path.join(args.input_directory, "Phamer_output", "analysis")
     elif args.fasta_file:
         analyzer.output_directory = os.path.join(os.path.dirname(args.fasta_file), "Phamer_output", "analysis")
     elif args.features_file:
         analyzer.output_directory = os.path.join(os.path.dirname(args.features_file), "Phamer_output", "analysis")
+
 
     # Deciding what the dataset name should be...
     if args.dataset_name:
