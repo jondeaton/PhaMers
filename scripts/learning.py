@@ -10,7 +10,7 @@ from sklearn.metrics import silhouette_samples
 from sklearn.cluster import DBSCAN
 import numpy as np
 from sklearn.neighbors.kde import KernelDensity
-from scipy import stats
+from sklearn.neighbors import KNeighborsClassifier
 import logging
 import pandas as pd
 
@@ -113,19 +113,17 @@ def get_density(point, data, bandwidth=0.1):
     return kde.score_samples(np.array([point]))[0]
 
 
-def knn(query, data, labels, k=3):
+def knn(queries, ref_data, ref_labels, k=3):
     """
-    K-Nearest Neighbors wrapper method
-    :param query: The point to search a label for as a numpy array
-    :param data: The data to compare the query to as a numpy array where rows are points
-    :param labels: The labels of each point in the data array
-    :param k: Number of nearest neighbors to consider
-    :return: The guessed classification
+    K-Nearest-Neighbors wrapper method
+    :param queries: Data points to classify
+    :param ref_data: Training Data
+    :param ref_labels: Labels for training data
+    :param k: Number of neighbors to consider
+    :return: Numpy array of labels for classified points
     """
-    near_labels = labels[np.argsort(distances(query, data))[:k]]
-    m = int(stats.mode(near_labels)[0])
-    r = float(np.count_nonzero(near_labels == m)) / k
-    return m
+    knn_computer = KNeighborsClassifier(n_neighbors=k).fit(ref_data, ref_labels)
+    return 2 * (knn_computer.predict(queries) - 0.5)
 
 
 def kmeans(data, k):
