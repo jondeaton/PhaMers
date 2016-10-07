@@ -555,7 +555,7 @@ if __name__ == '__main__':
             scorer.tsne_perplexity = args.perplexity
         scorer.do_tsne()
         logger.info("Saving t-SNE data...")
-        scorer.save_tsne_data()
+        scorer.save_tsne_data(args=args)
 
     # Plotting
     if args.plot_tsne:

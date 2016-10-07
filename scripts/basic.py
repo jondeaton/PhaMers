@@ -104,7 +104,7 @@ def decide_file(specified_file, found_file, abort=None):
         return None
 
 
-def search_for_file(directory, start=None, contain=None, end=None):
+def search_for_file(directory, start=None, contain=None, end=None, contains=None):
     """
     This function returns the path of a file within a directory that has a given ending
     :param directory: The directory to search in
@@ -113,9 +113,10 @@ def search_for_file(directory, start=None, contain=None, end=None):
     """
     all_files_in_dir = os.listdir(directory)
     search_results = [file for file in all_files_in_dir if
-                       (not start or file.startswith(start)) and
-                       (not contain or contain in file) and
-                       (not end or file.endswith(end))]
+                      (not start or file.startswith(start)) and
+                      (not contain or contain in file) and
+                      (not contains or contains in file) and
+                      (not end or file.endswith(end))]
     return [os.path.join(directory, file) for file in search_results]
 
 
