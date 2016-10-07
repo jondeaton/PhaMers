@@ -216,12 +216,12 @@ class results_analyzer(object):
             return
 
         ids, tsne_data, chops = fileIO.read_tsne_file(self.tsne_file)
+        contig_tsne_ids, phage_tsne_ids, bacteria_tsne_ids = basic.chop(ids, chops)
+        contig_tsne, phage_tsne, bacteria_tsne = basic.chop(tsne_data, chops)
+        contig_tsne_ids = contig_tsne_ids.astype(int)
+        plot_dict = {contig_tsne_ids[i]: contig_tsne[i] for i in xrange(len(contig_tsne_ids))}
+
         true_positives, false_positives, false_negatives, true_negatives = self.truth_table
-        contig_tsne_ids, phage_tsne_ids, bacteria_tsne_ids = phamer.chop(ids, chops)
-        contig_tsne, phage_tsne, bacteria_tsne = phamer.chop(tsne_data, chops)
-
-        plot_dict = {contig_tsne_ids[i]:contig_tsne[i] for i in xrange(len(contig_tsne_ids))}
-
         TP_points = np.array([plot_dict[id] for id in true_positives])
         FP_points = np.array([plot_dict[id] for id in false_positives])
         FN_points = np.array([plot_dict[id] for id in false_negatives])
@@ -236,14 +236,14 @@ class results_analyzer(object):
 
         plt.scatter(bacteria_tsne[:, 0], bacteria_tsne[:, 1], s=0.5, c=self.bacteria_color, edgecolor=self.bacteria_color, alpha=alpha, label='Bacteria')
         plt.scatter(phage_tsne[:, 0], phage_tsne[:, 1], s=0.5, c=self.phage_color, edgecolor=self.phage_color, alpha=alpha, label='Phage')
-        plt.scatter(TN_points[:, 0], TN_points[:, 1], s=3, c=self.tn_color, edgecolor=self.tn_color, alpha=alpha,label='True Negatives')
-        plt.scatter(FP_points[:, 0], FP_points[:, 1], s=3, c=self.fp_color, edgecolor=self.fp_color, alpha=alpha,label='False Positives')
-        plt.scatter(FN_points[:, 0], FN_points[:, 1], s=15, c=self.fn_color, edgecolor='black', alpha=alpha, label='False Negatives')
-        plt.scatter(TP_points[:, 0], TP_points[:, 1], s=15, c=self.tp_color, edgecolor='black', alpha=alpha, label='True Positives')
+        plt.scatter(TN_points[:, 0], TN_points[:, 1], s=3, c=self.tn_color, edgecolor=self.tn_color, alpha=alpha,label='True Negatives (%d)' % len(TP_points))
+        plt.scatter(FP_points[:, 0], FP_points[:, 1], s=3, c=self.fp_color, edgecolor=self.fp_color, alpha=alpha,label='False Positives (%d)' % len(FP_points))
+        plt.scatter(FN_points[:, 0], FN_points[:, 1], s=15, c=self.fn_color, edgecolor='black', alpha=alpha, label='False Negatives (%d)' % len(FN_points))
+        plt.scatter(TP_points[:, 0], TP_points[:, 1], s=15, c=self.tp_color, edgecolor='black', alpha=alpha, label='True Positives (%d)' % len(TP_points))
 
-        for id in ids:
+        for id in contig_tsne_ids:
             score = self.phamer_dict[id]
-            if id in true_positives or id in false_negatives or score > 1.5:
+            if id in true_positives or id in false_negatives or score > 1:
                 x, y = tsne_data[ids.index(id)]
                 if self.label_contigs_on_tsne:
                     plt.text(x, y, str(id), fontsize=5)
@@ -336,7 +336,7 @@ class results_analyzer(object):
         This function makes a CSV summary of all the results from VirSroter, Phamer, and IMG
         :return: None
         """
-        if self.dataset is not None:
+        if self.dataset_name is not None:
             fields = self.fields[:2] + ['DataSet'] + self.fields[2:]
         ids = self.virsorter_dict.keys()
         df = pd.DataFrame(columns=fields)
@@ -372,12 +372,15 @@ class results_analyzer(object):
 
     def prepare_gb_files_for_SnapGene(self):
         """
-        This function prepares all of the genbank files in this object for viewing with SnapGene
+        This function prepares all of the GenBank files in this object for viewing with SnapGene
         :return: None
         """
-        output = self.get_genbank_output_directory()
+        output_dir = self.get_genbank_output_directory()
+        logger.debug("Directory: %s" % output_dir)
+        if not os.path.exists(output_dir):
+            os.mkdir(output_dir)
         for file in self.genbank_files:
-            prepare_for_SnapGene(file, output)
+            prepare_for_SnapGene(file, output_dir)
 
     # Basic Functions
     def load_data(self):
@@ -490,6 +493,9 @@ class results_analyzer(object):
             phamer_files = basic.search_for_file(phamer_directory, contain='scores', end='.csv')
             if len(phamer_files) == 1:
                 self.phamer_summary = phamer_files[0]
+            tsne_files = basic.search_for_file(phamer_directory, contain='tsne', end='.csv')
+            if len(tsne_files) == 1:
+                self.tsne_file = tsne_files[0]
 
             features_files = basic.search_for_file(self.input_directory, end='.csv')
             if len(features_files) == 1:
@@ -537,7 +543,7 @@ class results_analyzer(object):
         This function gets a directory for where GenBank files shold be output to
         :return:
         """
-        return os.path.join(self.output_directory, "analysis", "genbank_files")
+        return os.path.join(self.output_directory, "genbank_files")
 
     def get_pie_charts_output_directory(self):
         """
@@ -638,7 +644,7 @@ def get_gene_product_dict(genbank_file):
             if feature.type == 'CDS':
                 name = feature.qualifiers['gene'][0]
                 product = feature.qualifiers['product'][0]
-                logger.info("%s: %s" % (name, product))
+                #logger.debug("%s: %s" % (name, product))
                 gene_product_dict[name] = product
     return gene_product_dict
 
