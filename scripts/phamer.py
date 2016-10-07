@@ -83,7 +83,7 @@ class phamer_scorer(object):
         self.min_samples = [self.positive_min_samples, self.negative_min_samples]
 
         self.tsne_perplexity = 30
-        self.pca_preprocess = True
+        self.pca_preprocess = False
         self.pca_preprocess_red = 50
         self.tsne_figsize = (30, 24)
 
@@ -135,7 +135,6 @@ class phamer_scorer(object):
         :param length_requirement: Minimum length requried for sequences
         :return: None
         """
-        # todo: this doens't work
         if length_requirement:
             self.length_requirement = length_requirement
         unknown_ids, unknown_sequences = fileIO.read_fasta(self.fasta_file)
@@ -312,8 +311,8 @@ class phamer_scorer(object):
     def save_tsne_data(self, args=None):
         """
         This function saves t-SNE data
-        :param args:
-        :return:
+        :param args: An argparse parsed arguments object. Used to make a header summary
+        :return: None
         """
         tsne_file = self.get_tsne_output_filename()
         ids = np.concatenate((self.data_ids, self.positive_ids, self.negative_ids))
@@ -334,7 +333,7 @@ class phamer_scorer(object):
         if self.pca_preprocess:
             logger.info("Pre-processing with PCA...")
             # This is to reduce memory requirement
-            pca_data = PCA(n_components=50).fit_transform(all_data)
+            pca_data = PCA(n_components=self.pca_preprocess_red).fit_transform(all_data)
             self.tsne_data = TSNE(perplexity=self.tsne_perplexity, verbose=True).fit_transform(pca_data)
         else:
             self.tsne_data = TSNE(perplexity=self.tsne_perplexity, verbose=True).fit_transform(all_data)
@@ -555,9 +554,13 @@ if __name__ == '__main__':
         if args.perplexity:
             scorer.tsne_perplexity = args.perplexity
         scorer.do_tsne()
+        logger.info("Saving t-SNE data...")
+        scorer.save_tsne_data()
 
     # Plotting
     if args.plot_tsne:
         logger.info("Creating t-SNE plot...")
         scorer.make_tsne_plot()
         logger.info("Done creating t-SNE plot.")
+
+    logger.info("Phamer complete.")

@@ -3,7 +3,6 @@
 This function implements basic save and load functionality for the various file types
 """
 
-
 import gzip
 from Bio import SeqIO
 import numpy as np
@@ -128,7 +127,11 @@ def read_feature_file(feature_file, normalize=False, id=None, old=False):
         kmer.normalize_counts(features, inplace=True)
 
     # Convert integer IDs from strings to integers, if possible
-    ids = np.array([int(str_id) for str_id in ids if basic.represents_int(str_id)])
+    ids = np.array(ids)
+    try:
+        ids = ids.astype(int)
+    except:
+        pass
 
     if id:
         return features[ids == id]
@@ -180,6 +183,8 @@ def save_tsne_data(filename, tsne_data, ids, args=None, chops=None):
         header += "\nchops: %s" % chops.__str__().replace('(', '').replace(')', '').replace('[','').replace(']','').strip()
     if args:
         header = basic.generate_summary(args, header=header)
+    logger.debug("ids: %s" % ids.shape.__str__())
+    logger.debug("tsne data: %s" % tsne_data.shape.__str__())
     data = np.hstack((np.array([ids]).transpose(), tsne_data.astype(str)))
     np.savetxt(filename, data, fmt='%s', delimiter=',', header=header)
 
