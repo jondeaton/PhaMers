@@ -47,7 +47,7 @@ class gene():
         return ', '.join(map(str, (self.contig_id, self.id, self.product, self.phylogeny)))
 
 
-def get_contig_map(IMG_directory, contig_name_map, contig_ids=None, keyword=None):
+def get_contig_map(IMG_directory, contig_name_id_map, contig_ids=None, keyword=None):
     """
     This function parses files from a directory that contains a IMG COG, phylogeny, and product files and writes the
     compiled data of contig id, phylogenies, and produces a mapping of id to contig object.
@@ -56,20 +56,20 @@ def get_contig_map(IMG_directory, contig_name_map, contig_ids=None, keyword=None
     :param keyword: Pass a string to this function so that only phylogenies with this keyword are used
     :return: A map of contig ID to contig object
     """
-    cog_file = basic.search_for_file(IMG_directory, '.COG')
-    phylo_file = basic.search_for_file(IMG_directory, '.phylodist')
-    product_file = basic.search_for_file(IMG_directory, '.product.names')
+    cog_file = basic.search_for_file(IMG_directory, end='.COG', first=True)
+    phylo_file = basic.search_for_file(IMG_directory, end='.phylodist', first=True)
+    product_file = basic.search_for_file(IMG_directory, end='.product.names', first=True)
 
-    contig_map = parse_cog_file(cog_file, contig_name_map, contig_ids=contig_ids)
-    logger.info("Parsed IMG file: %s" % os.path.basename(cog_file))
-    parse_phylodist(phylo_file, contig_map, contig_name_map, contig_ids=contig_ids, keyword=keyword)
-    logger.info("Parsed IMG file: %s" % os.path.basename(phylo_file))
-    parse_products(product_file, contig_map, contig_name_map, contig_ids=contig_ids)
-    logger.info("Parsed IMG file: %s" % os.path.basename(product_file))
+    logger.info("Parsing IMG file: %s ..." % os.path.basename(cog_file))
+    contig_map = parse_cog_file(cog_file, contig_name_id_map, contig_ids=contig_ids)
+    logger.info("Parsing IMG file: %s ..." % os.path.basename(phylo_file))
+    parse_phylodist(phylo_file, contig_map, contig_name_id_map, contig_ids=contig_ids, keyword=keyword)
+    logger.info("Parsing IMG file: %s ..." % os.path.basename(product_file))
+    parse_products(product_file, contig_map, contig_name_id_map, contig_ids=contig_ids)
     return contig_map
 
 
-def make_gene_csv(IMG_directory, output_filename, contig_name_map, contig_ids=None, keyword=None):
+def make_gene_csv(IMG_directory, output_filename, contig_name_id_map, contig_ids=None, keyword=None):
     """
     This function parses files from a directory that contains a IMG COG, phylogeny, and product files and writes the
     compiled data of contig id, phylogenies, and products into a tab-separated summary file
@@ -79,7 +79,7 @@ def make_gene_csv(IMG_directory, output_filename, contig_name_map, contig_ids=No
     :param keyword: Pass a string to this function so that only phylogenies with this keyword are used
     :return: None
     """
-    contig_map = get_contig_map(IMG_directory, contig_name_map, contig_ids=contig_ids, keyword=keyword)
+    contig_map = get_contig_map(IMG_directory, contig_name_id_map, contig_ids=contig_ids, keyword=keyword)
     f = open(output_filename, 'w')
     header = gene_csv_header(IMG_directory)
     f.write(header)
@@ -95,54 +95,62 @@ def parse_cog_file(cog_file, contig_name_map, contig_ids=None):
     :param contig_ids: A set of contig ids to search for
     :return: A list of gene objects that contain Ga ids, contig ids and gene numbers
     """
-    lines = open(cog_file, 'r').readlines()
+    with open(cog_file, 'r') as f:
+        lines = f.readlines()
+        f.close()
     contig_map = {}
     for line in lines:
         ga_string = line.split()[0]
         ga_id, contig_id, id = parse_Ga_string(ga_string, contig_name_map)
-        if contig_ids and contig_id in contig_ids:
+        #logger.debug("%s --> ga_id:%d, contig_id:%d, ga_id:%d" % (ga_string, ga_id, contig_id, id))
+        if contig_ids is None or contig_id in contig_ids:
             try:
                 the_contig = contig_map[contig_id]
             except KeyError:
                 the_contig = contig(contig_id)
                 contig_map[contig_id] = the_contig
             the_contig.genes[id] = gene(ga_id=ga_id, contig_id=contig_id, id=id)
+
     return contig_map
 
 
-def parse_products(products_file, contig_map, contig_name_map, contig_ids=None):
+def parse_products(products_file, contig_map, contig_name_id_map, contig_ids=None):
     """
-    This function parses an IMG product prediction file and places the products into the approapriate fields within the
+    This function parses an IMG product prediction file and places the products into the appropriate fields within the
     contig objects that are passed through the contig map
     :param products_file: An IMG  product prediction file
     :param contig_map: a dictionary that maps contig ID to contig objects, each of which has a gene dictionary
+    :param contig_name_id_map: A dictionary mapping contig names to congig ids
     :param contig_ids: A list of contig ids to search for within the file
-    :return: A diction
+    :return: A dictionary
     """
     lines = open(products_file, 'r').readlines()
     for line in lines:
         ga_string = line.split()[0]
-        ga_id, contig_id, id = parse_Ga_string(ga_string, contig_name_map)
-        if contig_ids and contig_id in contig_ids:
+        ga_id, contig_id, id = parse_Ga_string(ga_string, contig_name_id_map)
+        if contig_ids is None or contig_id in contig_ids:
             product = line.split('\t')[1]
+            the_contig = None
             try:
                 the_contig = contig_map[contig_id]
             except KeyError:
-                print "Error: %d not in contig map" % contig_id
+                logger.error("id %d not in contig map" % contig_id)
 
             try:
-                the_contig.genes[id].product = product
+                if the_contig is not None:
+                    the_contig.genes[id].product = product
             except KeyError:
                 new_gene = gene(contig_id=contig_id, id=id, product=product)
                 the_contig.genes[id] = new_gene
 
 
-def parse_phylodist(phylodist_file, contig_map, contig_name_map, contig_ids=None, keyword=None):
+def parse_phylodist(phylodist_file, contig_map, contig_name_id_map, contig_ids=None, keyword=None):
     """
     This function reads a phylogeny prediction file and puts phylogenies into the appropriate fields of the contig objects
     that are passed in withint the contig_map parameter
     :param phylodist_file: An IMG phylogeny prediction file
     :param contig_map: a dictionary that maps contig ID to contig objects, each of which has a gene dictionary
+    :param contig_name_id_map: A dictionary mapping contig names to congig ids
     :param contig_ids: A list of contig IDs to look for in the data
     :param keyword: Pass a string to this keyworded argument to only add phylogenies that contain that keyword
     :return: A dictionary that maps contig ID to phylogenies as a string format
@@ -150,13 +158,13 @@ def parse_phylodist(phylodist_file, contig_map, contig_name_map, contig_ids=None
     lines = open(phylodist_file, 'r').readlines()
     for line in lines:
         ga_string = line.split()[0]
-        ga_id, contig_id, id = parse_Ga_string(ga_string, contig_name_map)
+        ga_id, contig_id, id = parse_Ga_string(ga_string, contig_name_id_map)
         phylogeny = line.split()[4]
-        if contig_ids and contig_id in contig_ids:
+        if contig_ids is None or contig_id in contig_ids:
             try:
                 the_contig = contig_map[contig_id]
             except KeyError:
-                print "Error: %d not in contig map" % contig_id
+                logger.error("id %d not in contig map" % contig_id)
 
             try:
                 the_contig.genes[id].phylogeny = phylogeny
@@ -165,10 +173,11 @@ def parse_phylodist(phylodist_file, contig_map, contig_name_map, contig_ids=None
                 the_contig.genes[id] = new_gene
 
 
-def parse_Ga_string(Ga_string, contig_name_map):
+def parse_Ga_string(Ga_string, contig_name_id_map):
     """
     This function parses the string in the first column of Integrated Microbial Genomes (IMG) gene prediction files.
     :param Ga_string: The string in the first column of IMG gene prediction files
+    :param contig_name_id_map: A map from contig name to contig id
     :return: A tuple containing the Ga id in the fist element, and the contig id as the second element,
     and an integer representing the id number of the id within the contig
     """
@@ -183,7 +192,7 @@ def parse_Ga_string(Ga_string, contig_name_map):
             else:
                 contig_name = int(splitted[1][start:stop])
             try:
-                contig_id = contig_name_map[contig_name]
+                contig_id = contig_name_id_map[contig_name]
                 id = int(splitted[1][stop:])
                 return Ga_id, contig_id, id
             except KeyError:
@@ -197,9 +206,9 @@ def gene_csv_header(IMG_directory):
     :param IMG_directory: The directory used to generate the summary
     :return: A header that can be written at the top of an IMG summary file
     """
-    cog_file = basic.search_for_file(IMG_directory, '.COG')
-    phylo_file = basic.search_for_file(IMG_directory, '.phylodist')
-    product_file = basic.search_for_file(IMG_directory, '.product.names')
+    cog_file = basic.search_for_file(IMG_directory, end='.COG', first=True)
+    phylo_file = basic.search_for_file(IMG_directory, end='.phylodist', first=True)
+    product_file = basic.search_for_file(IMG_directory, end='.product.names', first=True)
     now = time.strftime("%Y-%m-%d %H:%M")
 
     header = ''
