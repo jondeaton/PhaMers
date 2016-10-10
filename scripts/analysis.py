@@ -131,20 +131,22 @@ class results_analyzer(object):
         :param id: The id of the
         :return: None... just makes a savage plot
         """
-        contig_features = self.contig_dict[self.contig_ids.index(id)]
+        contig_features = self.contig_features[self.contig_ids == id]
 
         # Append this contig's features onto those of the reference phage, and then cluster them all
-        appended_data = np.append(self.phage_kmers, np.array([contig_features]), axis=0)
-        if self.cluster_algorithm == 'kmeans':
-            asmt = learning.kmeans(appended_data, self.k_clusters)
-        elif self.cluster_algorithm == 'dbscan':
+        appended_data = np.vstack((self.phage_features, contig_features))
+        if self.cluster_algorithm == 'dbscan':
             asmt = learning.dbscan(appended_data, eps=self.eps, min_samples=self.min_samples)
+        elif self.cluster_algorithm == 'kmeans':
+            asmt = learning.kmeans(appended_data, self.k_clusters)
+        else:
+            # Default is k-means I guess
+            asmt = learning.kmeans(appended_data, self.k_clusters)
 
         # Find which cluster the contig was assigned to.
         cluster = asmt[-1]
         cluster_phage = np.arange(self.num_reference_phage)[asmt[:-1] == cluster]
-        cluster_lineages = [self.phage_lineages[i] for i in cluster_phage]
-
+        cluster_lineages = [self.lineages[i] for i in cluster_phage]
 
         plt.figure(figsize=self.pie_plot_figsize)
         for lineage_depth in xrange(1, 6):
@@ -152,7 +154,7 @@ class results_analyzer(object):
             kinds = [lineage[lineage_depth] for lineage in cluster_lineages]
             diversity = set(kinds)
 
-            enriched_kind, result, kind_ratio = tax.find_enriched_classification(cluster_lineages, self.phage_lineages, lineage_depth)
+            enriched_kind, result, kind_ratio = tax.find_enriched_classification(cluster_lineages, self.lineages, lineage_depth)
             if enriched_kind:
                 plt.text(-1, -1.3, "%.1f%% %s p=%.2g" % (100 * kind_ratio, enriched_kind, result[1]))
 
@@ -179,7 +181,7 @@ class results_analyzer(object):
         plt.text(1, 1.30, 'Phamer score: %.3f' % self.phamer_dict[id], fontsize=10)
 
         ax = plt.subplot(2, 3, 6)
-        cluster_silhouettes = phamer.cluster_silhouettes(appended_data, asmt, asmt[-1])
+        cluster_silhouettes = learning.cluster_silhouettes(appended_data, asmt, asmt[-1])
         point_sil = cluster_silhouettes[-1]
         cluster_silhouettes = cluster_silhouettes[:-1]
 
@@ -198,9 +200,13 @@ class results_analyzer(object):
         indicate which point is being represented
         :return: None
         """
-        true_positives, false_positives, false_negatives, true_negatives = self.truth_table()
+        true_positives, false_positives, false_negatives, true_negatives = self.truth_table
         plot_number = 1
         which_ids = true_positives + false_negatives
+        output_dir = self.get_pie_charts_output_directory()
+        if not os.path.exists(output_dir):
+            os.mkdir(output_dir)
+
         for id in which_ids:
             logger.info("Making plots for id: {id} ({num} of {total}) ...".format(id=id, num=plot_number, total=len(which_ids)))
             self.make_pie_lineage_charts(id)
@@ -338,12 +344,12 @@ class results_analyzer(object):
         """
         if self.dataset_name is not None:
             fields = self.fields[:2] + ['DataSet'] + self.fields[2:]
-        ids = self.virsorter_dict.keys()
+        ids = self.virsroter_map.keys()
         df = pd.DataFrame(columns=fields)
         df['Contig_ID'] = ids
         df['Contig_Name'] = [id_parser.get_contig_name(self.id_header_map[id]) for id in ids]
         df['Length'] = [id_parser.get_contig_length(self.id_header_map[id]) for id in ids]
-        df['VirSorter_Category'] = [self.virsorter_dict[id] for id in ids]
+        df['VirSorter_Category'] = [self.virsroter_map[id] for id in ids]
         if self.dataset_name is not None:
             df['DataSet'] = self.dataset_name
 
@@ -354,7 +360,7 @@ class results_analyzer(object):
                 pass
 
             try:
-                df.IMG_Products_and_Phylogenies[df.Contig_ID == id] = self.img_dict[id]
+                df.IMG_Products_and_Phylogenies[df.Contig_ID == id] = self.img_proucts_map[id]
             except KeyError:
                 pass
 
@@ -368,7 +374,7 @@ class results_analyzer(object):
         :return: None
         """
         self.img_summary = self.get_img_summary_filename()
-        img.make_gene_csv(self.img_dir, self.img_summary, self.contig_name_map, contig_ids=self.contig_ids, keyword=None)
+        img.make_gene_csv(self.img_directory, self.img_summary, self.contig_name_id_nap, contig_ids=self.contig_ids, keyword=None)
 
     def prepare_gb_files_for_SnapGene(self):
         """
@@ -376,7 +382,6 @@ class results_analyzer(object):
         :return: None
         """
         output_dir = self.get_genbank_output_directory()
-        logger.debug("Directory: %s" % output_dir)
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)
         for file in self.genbank_files:
@@ -409,6 +414,11 @@ class results_analyzer(object):
         logger.debug("Getting truth table...")
         self.truth_table = self.get_virsorter_phamer_truth_table()
         self.virsroter_map = {phage.id: phage.category for phage in fileIO.read_virsorter_file(self.virsorter_summary)}
+
+        logger.debug("Loading contig names and ids...")
+        self.contig_name_id_nap = get_name_id_map(contigs_file=self.fasta_file)
+        logger.debug("Loading IMG data...")
+        self.img_proucts_map = img.get_contig_map(self.img_directory, self.contig_name_id_nap)
         logger.info("Loaded all data.")
 
     def get_lineages(self):
@@ -558,6 +568,8 @@ class results_analyzer(object):
         :param id: The id of the contig
         :return: a file path for a figure with pie charts for the contig
         """
+        if not self.pie_charts_output:
+            self.pie_charts_output = self.get_pie_charts_output_directory()
         return os.path.join(self.pie_charts_output, 'close_phage_contig_{id}.svg'.format(id=id))
 
     def get_tsne_figname(self):
@@ -801,6 +813,8 @@ if __name__ == '__main__':
     if not os.path.isdir(analyzer.output_directory):
         os.mkdir(analyzer.output_directory)
 
+    logger.info("Making taxonomy pie charts...")
+    analyzer.make_cluster_taxonomy_pies()
     logger.info("Making t-SNE plot...")
     analyzer.make_tsne_plot()
     logger.info("Making ROC plot...")
@@ -811,7 +825,5 @@ if __name__ == '__main__':
     analyzer.make_overview_csv()
     logger.info("Making gene csv file...")
     analyzer.make_gene_csv()
-    logger.info("Making taxonomy pie charts...")
-    analyzer.cluster_taxonomy_pies()
 
     logger.info("Analysis complete.")
