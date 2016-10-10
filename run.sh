@@ -6,15 +6,15 @@
 #SBATCH --mem-per-cpu=8000
 #SBATCH --mem=24000
 #SBATCH --time=12:00:00
-#SBATCH --error=/local10G/jdeaton/Phamer/outputs/error.txt
-#SBATCH --output=/local10G/jdeaton/Phamer/outputs/log.txt
+#SBATCH --error=/local10G/jdeaton/Phamer/outputs/error-%A.out
+#SBATCH --output=/local10G/jdeaton/Phamer/outputs/log-%A.out
 scratch=$LOCAL_SATA
 now=`date +%Y-%m-%d.%H.%M.%S`
 
 do_taxonomy=false
 do_cross_validation=false
-do_phamer=true
-do_analysis=false
+do_phamer=False
+do_analysis=True
 
 run_bijah_road_side4=true
 run_lower_geyser_basin=false
