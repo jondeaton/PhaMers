@@ -230,6 +230,7 @@ def save_phamer_scores(ids, scores, file_name, args=None):
     arr = np.vstack((ids.astype(str), scores.astype(str))).transpose()
     np.savetxt(file_name, arr, delimiter=', ', header=header, comments="# ", fmt="%s")
 
+
 def read_phamer_output(filename):
     """
     This file reads a phamer summary file and returns the scores for the Phamer run
