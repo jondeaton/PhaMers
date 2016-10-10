@@ -23,7 +23,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
-import phamer
 import fileIO
 import id_parser
 import taxonomy as tax
@@ -813,8 +812,6 @@ if __name__ == '__main__':
     if not os.path.isdir(analyzer.output_directory):
         os.mkdir(analyzer.output_directory)
 
-    logger.info("Making taxonomy pie charts...")
-    analyzer.make_cluster_taxonomy_pies()
     logger.info("Making t-SNE plot...")
     analyzer.make_tsne_plot()
     logger.info("Making ROC plot...")
@@ -825,5 +822,7 @@ if __name__ == '__main__':
     analyzer.make_overview_csv()
     logger.info("Making gene csv file...")
     analyzer.make_gene_csv()
+    logger.info("Making taxonomy pie charts...")
+    analyzer.make_cluster_taxonomy_pies()
 
     logger.info("Analysis complete.")
