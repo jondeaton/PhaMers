@@ -161,13 +161,15 @@ def parse_phylodist(phylodist_file, contig_map, contig_name_id_map, contig_ids=N
         ga_id, contig_id, id = parse_Ga_string(ga_string, contig_name_id_map)
         phylogeny = line.split()[4]
         if contig_ids is None or contig_id in contig_ids:
+            the_contig = None
             try:
                 the_contig = contig_map[contig_id]
             except KeyError:
                 logger.error("id %d not in contig map" % contig_id)
 
             try:
-                the_contig.genes[id].phylogeny = phylogeny
+                if the_contig is not None:
+                    the_contig.genes[id].phylogeny = phylogeny
             except KeyError:
                 new_gene = gene(contig_id=contig_id, id=id, phylogeny=phylogeny)
                 the_contig.genes[id] = new_gene
