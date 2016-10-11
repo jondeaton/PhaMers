@@ -22,6 +22,7 @@ warnings.simplefilter('ignore', UserWarning)
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+from dna_features_viewer import GraphicRecord
 
 import fileIO
 import id_parser
@@ -239,7 +240,7 @@ class results_analyzer(object):
         box = ax.get_position()
         ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
 
-        plt.scatter(bacteria_tsne[:, 0], bacteria_tsne[:, 1], s=0.5, c=self.bacteria_color, edgecolor=self.bacteria_color, alpha=alpha, label='Bacteria')
+        plt.scatter(bacteria_tsne[:, 0], bacteria_tsne[:, 1], s=1, c=self.bacteria_color, edgecolor=self.bacteria_color, alpha=alpha, label='Bacteria')
         plt.scatter(phage_tsne[:, 0], phage_tsne[:, 1], s=0.5, c=self.phage_color, edgecolor=self.phage_color, alpha=alpha, label='Phage')
         plt.scatter(TN_points[:, 0], TN_points[:, 1], s=3, c=self.tn_color, edgecolor=self.tn_color, alpha=alpha,label='True Negatives (%d)' % len(TP_points))
         plt.scatter(FP_points[:, 0], FP_points[:, 1], s=3, c=self.fp_color, edgecolor=self.fp_color, alpha=alpha,label='False Positives (%d)' % len(FP_points))
@@ -287,54 +288,90 @@ class results_analyzer(object):
             x = 4 - [4, category - (category > 3) * 3][bool(category)]
             data[x].append(score)
 
-        plt.boxplot(data)
-        plt.xlabel('Confidence')
-        plt.ylabel('Phamer Score')
-        file_name = self.get_boxplot_filename()
-        plt.savefig(file_name)
+        try:
+            plt.boxplot(data)
+            plt.xlabel('Confidence')
+            plt.ylabel('Phamer Score')
+            file_name = self.get_boxplot_filename()
+            plt.savefig(file_name)
+        except IndexError:
+            logger.error("Could not make boxplot for the following data.")
+            print data
 
+    def make_contig_diagrams(self):
+        """
+        This function creates many DNA feature diagrams from all the files within the "genbank" directory.
+        :return: None.
+        """
+        output_dir = self.get_diagram_output_directory()
+        if not os.path.exists(output_dir):
+            os.mkdir(output_dir)
+
+        for genbank_file in basic.search_for_file(self.get_genbank_output_directory(), end='.gb'):
+            logger.info("Making diagram for contig: {file} ...".format(file=genbank_file))
+            plt.subplots()
+            with open(genbank_file, 'r') as f:
+                record = SeqIO.read(f, "genbank")
+            graphic_record = GraphicRecord.from_biopython_record(record)
+            graphic_record.plot(fig_width=10)
+            file_name = self.get_diagram_filename(id)
+            plt.savefig(file_name)
+
+    # Summary files
     def make_preditcion_summary(self, args=None):
         """
-        This function makes a summary for all the phage which were predicted
-        :return: A summary of all the phage which were predicted
+        This function makes a summary for all the phage which were predicted by VirSorter and Phamer together
+        :return: None. It saves this summary to file.
         """
-
-        ids = np.append(self.truth_table)
-        counts = [0] * 7
-        phamer_counts = [0] * 7
-        for id in ids:
+        all_ids = self.phamer_dict.keys()
+        category_counts = np.zeros(7)
+        phamer_category_counts = np.zeros(7)
+        for id in all_ids:
             try:
-                category = self.category_dict[id]
-            except:
+                category = self.contig_category_map[id]
+            except KeyError:
                 category = 0
 
             try:
                 score = self.phamer_dict[id]
-            except:
-                score = -1
+            except KeyError:
+                score = -2
 
-            counts[category] += 1
+            category_counts[category] += 1
             if score >= self.phamer_score_threshold:
-                phamer_counts[category] += 1
+                phamer_category_counts[category] += 1
 
         summary = basic.generate_summary(args)
-        summary += "\nTotal count: %d\n" % (np.sum(np.array(counts)[[1, 2, 4, 5]]) + np.sum(np.array(phamer_counts)[[3, 5]]))
-        for category in xrange(1, 7):
-            summary += "VirSorter category %d: %d\t(Phamer: %d)\n" % (category, counts[category], phamer_counts[category])
+        total_count = np.sum(category_counts[[1, 2, 4, 5]]) + np.sum(phamer_category_counts[[3, 6]])
+        summary += "\nTotal/Final count: %d\n" % total_count
 
-        tp, fp, fn, tn = self.truth_table
+        for category in xrange(1, 7):
+            summary += "VirSorter category {category}: {count}\t(Phamer: {phamer_count)\n".format(category=category,
+                                                                                                  count=category_counts[category],
+                                                                                                  phamer_count=phamer_category_counts[category])
+
         summary += "--> Summary of Phamer results:\n"
-        summary += "True Positives: %d\n" % len(tp)
-        summary += "False Positives: %d\n" % len(fp)
-        summary += "False Negatives: %d\n" % len(fn)
-        summary += "True Negatives: %d\n" % len(tn)
-        summary += "PPV: %.2f%%\n" % (100.0 * float(len(tp)) / (len(tp) + len(fp)))
+        summary += "True Positives: %d\n" % len(self.truth_table[0])
+        summary += "False Positives: %d\n" % len(self.truth_table[1])
+        summary += "False Negatives: %d\n" % len(self.truth_table[2])
+        summary += "True Negatives: %d\n" % len(self.truth_table[3])
+        ppv = float(len(self.truth_table[0])) / (len(self.truth_table[0]) + len(self.truth_table[1]))
+        summary += "PPV: %.2f%%\n" % (100.0 * ppv)
 
         summary = summary.strip()
         file_name = self.get_prediction_summary_filename()
-        with open(file_name, 'w') as file:
-            file.write(summary)
-            file.close()
+        with open(file_name, 'w') as f:
+            f.write(summary)
+            f.close()
+
+        positive_scores = np.array([self.phamer_dict[id] for id in self.truth_table[[0, 2]]])
+        negative_scores = np.array([self.phamer_dict[id] for id in self.truth_table[[1, 3]]])
+        metrics_series = learning.get_predictor_metrics(positive_scores, negative_scores, threshold=self.phamer_score_threshold)
+        metrics = ['tp', 'fp', 'fn', 'tn', 'tpr', 'fpr', 'fnr', 'tnr', 'ppv', 'npv', 'fdr', 'acc']
+        metric_names = ["True Positives", "False Positives", "False Negatives", "True Negatives",
+                        "True Positive Rate", "False Positive Rate", "False Negative Rate", "True Negative Rate"
+                        "Positive Predictive Value", "Negative Predictive Value", "False Discovery Rate", "Accuracy"]
+        metrics_series.to_csv(file_name, sep="\t", mode='a')
 
     def make_overview_csv(self):
         """
@@ -547,6 +584,23 @@ class results_analyzer(object):
         self.find_genbank_files()
 
     # File name getters
+
+    def get_diagram_output_directory(self):
+        """
+        This function is for agetting a location to put contig gene diagrams
+        :return: Thsi function returns a path to a subdirectory of the output directory
+        """
+        return os.path.join(self.output_directory, "contig_diagrams")
+
+    def get_diagram_filename(self, id):
+        """
+        This function is for getting a path to a file to saving a dna diagram
+        :return: A path to a file where I could save a DNA diagram
+        """
+        if not self.pie_charts_output:
+            self.pie_charts_output = self.get_pie_charts_output_directory()
+        return os.path.join(self.pie_charts_output, "dna_features_contig_{id}.svg".format(id=id))
+
     def get_genbank_output_directory(self):
         """
         This function gets a directory for where GenBank files shold be output to
@@ -818,10 +872,14 @@ if __name__ == '__main__':
     analyzer.make_performance_plots()
     logger.info("Preparing GenBank files for SnapGene...")
     analyzer.prepare_gb_files_for_SnapGene()
+    logger.info("Making prediction metrics file...")
+    analyzer.make_preditcion_summary()
     logger.info("Making summary file...")
     analyzer.make_overview_csv()
     logger.info("Making gene csv file...")
     analyzer.make_gene_csv()
+    logger.info("Making contig diagrams...")
+    analyzer.make_contig_diagrams()
     logger.info("Making taxonomy pie charts...")
     analyzer.make_cluster_taxonomy_pies()
 
