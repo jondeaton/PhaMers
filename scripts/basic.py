@@ -24,6 +24,8 @@ def generate_summary(args, line_start='', header=''):
     :param args: The parsed arguments object used to parse the arguments from the function call
     :return: a beautiful summary
     """
+    if args is None:
+        return ""
     str_rep = args.__str__()
     str_rep = str_rep.replace('Namespace(', line_start)
     str_rep = str_rep.replace(')', '')
