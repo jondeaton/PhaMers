@@ -124,7 +124,7 @@ def read_feature_file(feature_file, normalize=False, id=None, old=False):
         features = data[:, 1:].astype(int)
 
     if normalize:
-        kmer.normalize_counts(features, inplace=True)
+        features = kmer.normalize_counts(features)
 
     # Convert integer IDs from strings to integers, if possible
     ids = np.array(ids)
