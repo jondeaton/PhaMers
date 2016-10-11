@@ -82,8 +82,8 @@ class phamer_scorer(object):
         self.eps = [self.positive_eps, self.negative_eps]
         self.min_samples = [self.positive_min_samples, self.negative_min_samples]
 
-        self.tsne_perplexity = 30
-        self.pca_preprocess = False
+        self.tsne_perplexity = 50
+        self.pca_preprocess = True
         self.pca_preprocess_red = 50
         self.tsne_figsize = (30, 24)
 
@@ -97,6 +97,8 @@ class phamer_scorer(object):
         if self.positive_features and os.path.exists(self.positive_features):
             logger.info("Reading positive features from: %s" % os.path.basename(self.positive_features))
             scorer.positive_ids, scorer.positive_data = fileIO.read_feature_file(self.positive_features, normalize=True)
+            print scorer.positive_data
+            exit()
         elif self.positive_fasta and os.path.exists(self.positive_fasta):
             logger.info("Counting positive k-mers from: %s" % os.path.basename(self.positive_fasta))
             scorer.positive_ids, scorer.positive_data = kmer.count(self.positive_fasta)
@@ -123,7 +125,7 @@ class phamer_scorer(object):
             logger.info("Saving features to {file}...".format(file=self.features_file))
             fileIO.save_counts(self.data_points, self.data_ids, self.features_file)
 
-        kmer.normalize_counts(self.data_points, inplace=True)
+        self.data_points = kmer.normalize_counts(self.data_points)
 
         if args.length_requirement:
             logger.info("Screening input by length: %d bp..." % args.length_requirement)
