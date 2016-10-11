@@ -97,8 +97,6 @@ class phamer_scorer(object):
         if self.positive_features and os.path.exists(self.positive_features):
             logger.info("Reading positive features from: %s" % os.path.basename(self.positive_features))
             scorer.positive_ids, scorer.positive_data = fileIO.read_feature_file(self.positive_features, normalize=True)
-            print scorer.positive_data
-            exit()
         elif self.positive_fasta and os.path.exists(self.positive_fasta):
             logger.info("Counting positive k-mers from: %s" % os.path.basename(self.positive_fasta))
             scorer.positive_ids, scorer.positive_data = kmer.count(self.positive_fasta)
