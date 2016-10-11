@@ -207,7 +207,7 @@ def get_kmer_index(kmer, symbols):
     return int(sequence_to_integers(kmer, symbols), len(kmer))
 
 
-def normalize_counts(counts, inplace=False):
+def normalize_counts(counts):
     """
     This function normalizes a k-mer count array by the total number of k-mers
     :param counts: A numpy array with rows containing counts, can be 1D or 2D array
@@ -219,8 +219,7 @@ def normalize_counts(counts, inplace=False):
     else:
         for i in xrange(counts.shape[0]):
             counts[i, :] /= np.sum(counts[i, :])
-    if not inplace:
-        return counts
+    return counts
 
 
 def kmers(k, symbols=DNA):
