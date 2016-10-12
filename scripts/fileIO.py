@@ -128,10 +128,6 @@ def read_feature_file(feature_file, normalize=False, id=None, old=False):
 
     # Convert integer IDs from strings to integers, if possible
     ids = np.array(ids)
-    try:
-        ids = ids.astype(int)
-    except:
-        pass
 
     if id:
         return features[ids == id]
@@ -183,8 +179,6 @@ def save_tsne_data(filename, tsne_data, ids, args=None, chops=None):
         header += "\nchops: %s" % chops.__str__().replace('(', '').replace(')', '').replace('[','').replace(']','').strip()
     if args:
         header = basic.generate_summary(args, header=header)
-    logger.debug("ids: %s" % ids.shape.__str__())
-    logger.debug("tsne data: %s" % tsne_data.shape.__str__())
     data = np.hstack((np.array([ids]).transpose(), tsne_data.astype(str)))
     np.savetxt(filename, data, fmt='%s', delimiter=',', header=header)
 
@@ -202,9 +196,6 @@ def read_tsne_file(tsne_file):
         raise ValueError("t-SNE file is None")
     data = np.loadtxt(tsne_file, dtype=str, delimiter=',')
     ids = list(data[:, 0].transpose())
-    for i in xrange(len(ids)):
-        if basic.represents_int(ids[i]):
-            ids[i] = int(ids[i])
     points = data[:, 1:].astype(float)
     chops = None
     with open(tsne_file, 'r') as f:
@@ -243,7 +234,7 @@ def read_phamer_output(filename):
     for line in lines:
         if '#' not in line:
             try:
-                id = int(line.split(',')[0])
+                id = line.split(',')[0]
             except:
                 id = id_parser.get_contig_id(line.split()[0])
             score_dict[id] = float(line.split()[1])

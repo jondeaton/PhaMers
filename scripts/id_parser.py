@@ -26,7 +26,7 @@ def get_contig_id(header):
     except:
         logger.warning("Invalid contig header: %s" % header)
         return header
-    return int(parts[1 + parts.index('ID')].replace('-circular', ''))
+    return parts[1 + parts.index('ID')].replace('-circular', '')
 
 
 def get_contig_name(header):
@@ -38,7 +38,7 @@ def get_contig_name(header):
     header = header.strip().replace('>', '')
     parts = header.split('_')
     try:
-        return int(parts[1 + parts.index('SuperContig')])
+        return parts[1 + parts.index('SuperContig')]
     except:
         logger.warning("Couldn't find name from: %s" % header)
 
