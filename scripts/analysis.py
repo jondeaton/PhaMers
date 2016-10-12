@@ -224,7 +224,6 @@ class results_analyzer(object):
         ids, tsne_data, chops = fileIO.read_tsne_file(self.tsne_file)
         contig_tsne_ids, phage_tsne_ids, bacteria_tsne_ids = basic.chop(ids, chops)
         contig_tsne, phage_tsne, bacteria_tsne = basic.chop(tsne_data, chops)
-        contig_tsne_ids = contig_tsne_ids.astype(int)
         plot_dict = {contig_tsne_ids[i]: contig_tsne[i] for i in xrange(len(contig_tsne_ids))}
 
         true_positives, false_positives, false_negatives, true_negatives = self.truth_table
@@ -240,7 +239,7 @@ class results_analyzer(object):
         box = ax.get_position()
         ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
 
-        plt.scatter(bacteria_tsne[:, 0], bacteria_tsne[:, 1], s=1, c=self.bacteria_color, edgecolor=self.bacteria_color, alpha=alpha, label='Bacteria')
+        plt.scatter(bacteria_tsne[:, 0], bacteria_tsne[:, 1], s=5, c=self.bacteria_color, edgecolor=self.bacteria_color, alpha=alpha, label='Bacteria')
         plt.scatter(phage_tsne[:, 0], phage_tsne[:, 1], s=0.5, c=self.phage_color, edgecolor=self.phage_color, alpha=alpha, label='Phage')
         plt.scatter(TN_points[:, 0], TN_points[:, 1], s=3, c=self.tn_color, edgecolor=self.tn_color, alpha=alpha,label='True Negatives (%d)' % len(TP_points))
         plt.scatter(FP_points[:, 0], FP_points[:, 1], s=3, c=self.fp_color, edgecolor=self.fp_color, alpha=alpha,label='False Positives (%d)' % len(FP_points))
@@ -318,7 +317,7 @@ class results_analyzer(object):
             plt.savefig(file_name)
 
     # Summary files
-    def make_preditcion_summary(self, args=None):
+    def make_prediction_summary(self, args=None):
         """
         This function makes a summary for all the phage which were predicted by VirSorter and Phamer together
         :return: None. It saves this summary to file.
@@ -346,7 +345,7 @@ class results_analyzer(object):
         summary += "\nTotal/Final count: %d\n" % total_count
 
         for category in xrange(1, 7):
-            summary += "VirSorter category {category}: {count}\t(Phamer: {phamer_count)\n".format(category=category,
+            summary += "VirSorter category {category}: {count}\t(Phamer: {phamer_count}\n".format(category=category,
                                                                                                   count=category_counts[category],
                                                                                                   phamer_count=phamer_category_counts[category])
 
@@ -359,13 +358,15 @@ class results_analyzer(object):
         summary += "PPV: %.2f%%\n" % (100.0 * ppv)
 
         summary = summary.strip()
-        file_name = self.get_prediction_summary_filename()
+        file_name = self.get_prediction_metrics_filename()
         with open(file_name, 'w') as f:
             f.write(summary)
             f.close()
 
-        positive_scores = np.array([self.phamer_dict[id] for id in self.truth_table[[0, 2]]])
-        negative_scores = np.array([self.phamer_dict[id] for id in self.truth_table[[1, 3]]])
+        positive_ids = np.append(self.truth_table[0], self.truth_table[2])
+        negative_ids = np.append(self.truth_table[1], self.truth_table[3])
+        positive_scores = np.array([self.phamer_dict[id] for id in positive_ids])
+        negative_scores = np.array([self.phamer_dict[id] for id in negative_ids])
         metrics_series = learning.get_predictor_metrics(positive_scores, negative_scores, threshold=self.phamer_score_threshold)
         metrics = ['tp', 'fp', 'fn', 'tn', 'tpr', 'fpr', 'fnr', 'tnr', 'ppv', 'npv', 'fdr', 'acc']
         metric_names = ["True Positives", "False Positives", "False Negatives", "True Negatives",
@@ -639,12 +640,20 @@ class results_analyzer(object):
         """
         return os.path.join(self.output_directory, "category_boxplot.svg")
 
-    def get_prediction_summary_filename(self):
+    def get_prediction_metrics_filename(self):
         """
         This function returns a file path for a summary file
-        :return:
+        :return: A file path as a string
         """
-        return os.path.join(self.output_directory, "prediction_summary.csv")
+        return os.path.join(self.output_directory, "prediction_metrics.csv")
+
+    def get_prediction_summary_filename(self):
+        """
+        This function returns a suitable file path to a place to store the integrated data from VirSorter, Phamer
+        and IMG analyses
+        :return: A file path as a string
+        """
+        return os.path.join(self.output_directory, "integrated_summary.csv")
 
     def get_img_summary_filename(self):
         """
@@ -734,8 +743,7 @@ def prepare_for_SnapGene(genbank_file, destination):
 
     for phage_gb in putative_phage_gb:
         contig_header = phage_gb.strip().split('\n')[0].split()[1]
-        logger.info('Contig: %s' % contig_header)
-        new_gb_file = 'VS_SuperContig_%d_ID_%d.gb' % (id_parser.get_contig_name(contig_header), id_parser.get_contig_id(contig_header))
+        new_gb_file = 'VS_SuperContig_%s_ID_%s.gb' % (id_parser.get_contig_name(contig_header), id_parser.get_contig_id(contig_header))
         new_gb_file = os.path.join(destination, new_gb_file)
         f = open(new_gb_file, 'w')
         f.write(phage_gb)
@@ -873,7 +881,7 @@ if __name__ == '__main__':
     logger.info("Preparing GenBank files for SnapGene...")
     analyzer.prepare_gb_files_for_SnapGene()
     logger.info("Making prediction metrics file...")
-    analyzer.make_preditcion_summary()
+    analyzer.make_prediction_summary()
     logger.info("Making summary file...")
     analyzer.make_overview_csv()
     logger.info("Making gene csv file...")
