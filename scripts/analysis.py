@@ -17,7 +17,7 @@ import matplotlib
 try:
     os.environ["DISPLAY"]
 except KeyError:
-    matplotlib.use('Agg')
+    matplotlib.use('TkAgg')
 warnings.simplefilter('ignore', UserWarning)
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -345,7 +345,7 @@ class results_analyzer(object):
         summary += "\nTotal/Final count: %d\n" % total_count
 
         for category in xrange(1, 7):
-            summary += "VirSorter category {category}: {count}\t(Phamer: {phamer_count}\n".format(category=category,
+            summary += "VirSorter category {category}: {count}\t(Phamer: {phamer_count})\n".format(category=category,
                                                                                                   count=category_counts[category],
                                                                                                   phamer_count=phamer_category_counts[category])
 
@@ -357,7 +357,6 @@ class results_analyzer(object):
         ppv = float(len(self.truth_table[0])) / (len(self.truth_table[0]) + len(self.truth_table[1]))
         summary += "PPV: %.2f%%\n" % (100.0 * ppv)
 
-        summary = summary.strip()
         file_name = self.get_prediction_metrics_filename()
         with open(file_name, 'w') as f:
             f.write(summary)
