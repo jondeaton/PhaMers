@@ -62,8 +62,6 @@ def get_contig_map(IMG_directory, contig_name_id_map, contig_ids=None, keyword=N
 
     logger.info("Parsing IMG file: %s ..." % os.path.basename(cog_file))
     contig_map = parse_cog_file(cog_file, contig_name_id_map, contig_ids=contig_ids)
-    print contig_map.keys()
-
     logger.info("Parsing IMG file: %s ..." % os.path.basename(phylo_file))
     parse_phylodist(phylo_file, contig_map, contig_name_id_map, contig_ids=contig_ids, keyword=keyword)
     logger.info("Parsing IMG file: %s ..." % os.path.basename(product_file))
@@ -97,36 +95,6 @@ def parse_cog_file(cog_file, contig_name_map, contig_ids=None):
     return contig_map
 
 
-def parse_products(products_file, contig_map, contig_name_id_map, contig_ids=None):
-    """
-    This function parses an IMG product prediction file and places the products into the appropriate fields within the
-    contig objects that are passed through the contig map
-    :param products_file: An IMG  product prediction file
-    :param contig_map: a dictionary that maps contig ID to contig objects, each of which has a gene dictionary
-    :param contig_name_id_map: A dictionary mapping contig names to congig ids
-    :param contig_ids: A list of contig ids to search for within the file
-    :return: A dictionary
-    """
-    lines = open(products_file, 'r').readlines()
-    for line in lines:
-        ga_string = line.split()[0]
-        ga_id, contig_id, id = parse_Ga_string(ga_string, contig_name_id_map)
-        if contig_ids is None or contig_id in contig_ids:
-            product = line.split('\t')[1]
-            the_contig = None
-            try:
-                the_contig = contig_map[contig_id]
-            except KeyError:
-                pass
-                #logger.error("id %s not in contig map" % contig_id)
-            try:
-                if the_contig is not None:
-                    the_contig.genes[id].product = product
-            except KeyError:
-                new_gene = gene(contig_id=contig_id, id=id, product=product)
-                the_contig.genes[id] = new_gene
-
-
 def parse_phylodist(phylodist_file, contig_map, contig_name_id_map, contig_ids=None, keyword=None):
     """
     This function reads a phylogeny prediction file and puts phylogenies into the appropriate fields of the contig objects
@@ -148,13 +116,52 @@ def parse_phylodist(phylodist_file, contig_map, contig_name_id_map, contig_ids=N
             try:
                 the_contig = contig_map[contig_id]
             except KeyError:
-                logger.error("id %s not in contig map" % contig_id)
+                # This is a new contig, so make a new contig object
+                the_contig = contig(contig_id)
+                contig_map[contig_id] = the_contig
+                the_contig.genes[id] = gene(ga_id=ga_id, contig_id=contig_id, id=id)
 
             try:
                 if the_contig is not None:
+                    # found a contig... add a phylogeny to the gene at the specified gene id
                     the_contig.genes[id].phylogeny = phylogeny
             except KeyError:
+                # There was not a gene for that id already, so add the gene and phylogeny
                 new_gene = gene(contig_id=contig_id, id=id, phylogeny=phylogeny)
+                the_contig.genes[id] = new_gene
+
+
+def parse_products(products_file, contig_map, contig_name_id_map, contig_ids=None):
+    """
+    This function parses an IMG product prediction file and places the products into the appropriate fields within the
+    contig objects that are passed through the contig map
+    :param products_file: An IMG  product prediction file
+    :param contig_map: a dictionary that maps contig ID to contig objects, each of which has a gene dictionary
+    :param contig_name_id_map: A dictionary mapping contig names to congig ids
+    :param contig_ids: A list of contig ids to search for within the file
+    :return: A dictionary
+    """
+    lines = open(products_file, 'r').readlines()
+    for line in lines:
+        ga_string = line.split()[0]
+        ga_id, contig_id, id = parse_Ga_string(ga_string, contig_name_id_map)
+        if contig_ids is None or contig_id in contig_ids:
+            product = line.split('\t')[1]
+            the_contig = None
+            try:
+                the_contig = contig_map[contig_id]
+            except KeyError:
+                the_contig = contig(contig_id)
+                contig_map[contig_id] = the_contig
+                the_contig.genes[id] = gene(ga_id=ga_id, contig_id=contig_id, id=id)
+
+            try:
+                if the_contig is not None:
+                    # found this contig... add product to the specified id
+                    the_contig.genes[id].product = product
+            except KeyError:
+                #There was not a gene for that id already, so add the gene and it's product
+                new_gene = gene(contig_id=contig_id, id=id, product=product)
                 the_contig.genes[id] = new_gene
 
 
