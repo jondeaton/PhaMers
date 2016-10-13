@@ -82,8 +82,9 @@ class phamer_scorer(object):
         self.eps = [self.positive_eps, self.negative_eps]
         self.min_samples = [self.positive_min_samples, self.negative_min_samples]
 
-        self.tsne_perplexity = 50
-        self.pca_preprocess = True
+        self.use_tsne_python = False
+        self.tsne_perplexity = 30.0
+        self.pca_preprocess = False
         self.pca_preprocess_red = 50
         self.tsne_figsize = (30, 24)
 
@@ -94,16 +95,16 @@ class phamer_scorer(object):
         :return: None. scorer object is modified in place
         """
         # loading reference data
-        if self.positive_features and os.path.exists(self.positive_features):
-            logger.info("Reading positive features from: %s" % os.path.basename(self.positive_features))
-            scorer.positive_ids, scorer.positive_data = fileIO.read_feature_file(self.positive_features, normalize=True)
+        if self.positive_features and os.path.exists(self.positive_features_file):
+            logger.info("Reading positive features from: %s" % os.path.basename(self.positive_features_file))
+            scorer.positive_ids, scorer.positive_data = fileIO.read_feature_file(self.positive_features_file, normalize=True)
         elif self.positive_fasta and os.path.exists(self.positive_fasta):
             logger.info("Counting positive k-mers from: %s" % os.path.basename(self.positive_fasta))
             scorer.positive_ids, scorer.positive_data = kmer.count(self.positive_fasta)
 
-        if self.negative_features and os.path.exists(self.negative_features):
-            logger.info("Reading negative features from: %s" % os.path.basename(self.negative_features))
-            scorer.negative_ids, scorer.negative_data = fileIO.read_feature_file(self.positive_features, normalize=True)
+        if self.negative_features_file and os.path.exists(self.negative_features_file):
+            logger.info("Reading negative features from: %s" % os.path.basename(self.negative_features_file))
+            scorer.negative_ids, scorer.negative_data = fileIO.read_feature_file(self.negative_features_file, normalize=True)
         elif self.negative_fasta and os.path.exists(self.negative_fasta):
             logger.info("Counting negative k-mers from: %s" % os.path.basename(self.negative_fasta))
             scorer.negative_ids, scorer.negative_data = kmer.count(self.negative_fasta)
@@ -330,9 +331,16 @@ class phamer_scorer(object):
         del self.data_points
         del self.positive_data
         del self.negative_data
-        if self.pca_preprocess:
-            logger.info("Pre-processing with PCA...")
+        if self.use_tsne_python:
+            try:
+                # Try importing and using the tsne_python implementation...
+                import tsne
+                self.tsne_data = tsne.tsne(all_data, 2, self.tsne_perplexity)
+            except:
+                pass
+        elif self.pca_preprocess:
             # This is to reduce memory requirement
+            logger.info("Pre-processing with PCA...")
             pca_data = PCA(n_components=self.pca_preprocess_red).fit_transform(all_data)
             self.tsne_data = TSNE(perplexity=self.tsne_perplexity, verbose=True).fit_transform(pca_data)
         else:
