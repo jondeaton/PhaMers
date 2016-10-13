@@ -2,6 +2,8 @@
 # This script is for running all Phamer related scripts
 
 clear
+ls
+clear
 echo "============================== RUN CALL =============================="
 date
 

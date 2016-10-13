@@ -6,19 +6,11 @@ This script is used to parse files from JGI's Integrated Microbial Genomes (IMG)
 import os
 import time
 import argparse
-import logging
 
-__version__ = 1.0
-__author__ = "Jonathan Deaton (jdeaton@stanford.edu)"
-__license__ = "No license"
-
-logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 class contig():
     '''
-    This class is for contigs
+    This function is for contigs
     '''
     def __init__(self, id, genes=None):
         self.id = id
@@ -47,7 +39,7 @@ class gene():
         return ', '.join(map(str, (self.contig_id, self.id, self.product, self.phylogeny)))
 
 
-def make_gene_csv(IMG_directory, output_filename, contig_name_map, contig_ids=None, keyword=None):
+def make_gene_csv(IMG_directory, output_filename, contig_name_map, contig_ids=None, keyword=None, verbose=False):
     '''
     This function parses files from a directory that contains a IMG COG, phylogeny, and product files and writes the
     compiled data of contig id, phylogenies, and product into a tab seperated summary file
@@ -62,11 +54,14 @@ def make_gene_csv(IMG_directory, output_filename, contig_name_map, contig_ids=No
     product_file = search_for_file(IMG_directory, '.product.names')
 
     contig_map = parse_cog_file(cog_file, contig_name_map, contig_ids=contig_ids)
-    logger.info("Parsed IMG file: %s" % os.path.basename(cog_file))
+    if verbose:
+        print "Parsed IMG file: %s" % os.path.basename(cog_file)
     parse_phylodist(phylo_file, contig_map, contig_name_map, contig_ids=contig_ids, keyword=keyword)
-    logger.info("Parsed IMG file: %s" % os.path.basename(phylo_file))
+    if verbose:
+        print "Parsed IMG file: %s" % os.path.basename(phylo_file)
     parse_products(product_file, contig_map, contig_name_map, contig_ids=contig_ids)
-    logger.info("Parsed IMG file: %s" % os.path.basename(product_file))
+    if verbose:
+        print "Parsed IMG file: %s" % os.path.basename(product_file)
 
     f = open(output_filename, 'w')
     header = gene_csv_header(IMG_directory)
@@ -265,20 +260,16 @@ def list_mode(list):
 
 if __name__ == '__main__':
 
-
-    script_description = 'This script parses IMG files'
-    parser = argparse.ArgumentParser(description=script_description, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-
-    input_group = parser.add_argument_group("Inputs")
-    input_group.add_argument('summary_file', type=str, help='IMG gene prediction summary file')
-    input_group.add_argument('-id', '--contig_id', default=0, type=int, help='Contig ID')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('summary_file', type=str, help='IMG gene prediction summary file')
+    parser.add_argument('-id', '--contig_id', default=0, type=int, help='Contig ID')
     args = parser.parse_args()
 
     summary_file = args.summary_file
     contig_id = args.contig_id
     lines = [line for line in open(summary_file, 'r').readlines() if line.startswith(str(contig_id) + ',')]
 
-    print "Gene Predictions: "
+    print "Gene Predictions:"
     i = 1
     phylogenies = []
     for line in lines:

@@ -20,9 +20,6 @@ import numpy as np
 import colorsys
 import random
 
-__version__ = 1.0
-__author__ = "Jonathan Deaton (jdeaton@stanford.edu)"
-__license__ = "No license"
 
 default_colors = ['red', 'orange', 'green', 'blue', 'purple']
 
