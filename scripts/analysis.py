@@ -140,10 +140,10 @@ class results_analyzer(object):
         elif self.cluster_algorithm == 'kmeans':
             asmt = learning.kmeans(appended_data, self.k_clusters)
         else:
-            # Default is k-means I guess
+            # The default is k-means I guess...
             asmt = learning.kmeans(appended_data, self.k_clusters)
 
-        # Find which cluster the contig was assigned to.
+        # Find which cluster the contig was assigned to
         cluster = asmt[-1]
         cluster_phage = np.arange(self.num_reference_phage)[asmt[:-1] == cluster]
         cluster_lineages = [self.lineages[i] for i in cluster_phage]
@@ -239,9 +239,9 @@ class results_analyzer(object):
         box = ax.get_position()
         ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
 
-        plt.scatter(bacteria_tsne[:, 0], bacteria_tsne[:, 1], s=5, c=self.bacteria_color, edgecolor=self.bacteria_color, alpha=alpha, label='Bacteria')
-        plt.scatter(phage_tsne[:, 0], phage_tsne[:, 1], s=0.5, c=self.phage_color, edgecolor=self.phage_color, alpha=alpha, label='Phage')
-        plt.scatter(TN_points[:, 0], TN_points[:, 1], s=3, c=self.tn_color, edgecolor=self.tn_color, alpha=alpha,label='True Negatives (%d)' % len(TP_points))
+        plt.scatter(bacteria_tsne[:, 0], bacteria_tsne[:, 1], s=5, c=self.bacteria_color, edgecolor=self.bacteria_color, alpha=alpha, label='Bacteria (%s)' % bacteria_tsne.shape[0])
+        plt.scatter(phage_tsne[:, 0], phage_tsne[:, 1], s=0.5, c=self.phage_color, edgecolor=self.phage_color, alpha=alpha, label='Phage (%d)' % self.num_reference_phage)
+        plt.scatter(TN_points[:, 0], TN_points[:, 1], s=3, c=self.tn_color, edgecolor=self.tn_color, alpha=alpha,label='True Negatives (%d)' % len(TN_points))
         plt.scatter(FP_points[:, 0], FP_points[:, 1], s=3, c=self.fp_color, edgecolor=self.fp_color, alpha=alpha,label='False Positives (%d)' % len(FP_points))
         plt.scatter(FN_points[:, 0], FN_points[:, 1], s=15, c=self.fn_color, edgecolor='black', alpha=alpha, label='False Negatives (%d)' % len(FN_points))
         plt.scatter(TP_points[:, 0], TP_points[:, 1], s=15, c=self.tp_color, edgecolor='black', alpha=alpha, label='True Positives (%d)' % len(TP_points))
@@ -340,22 +340,20 @@ class results_analyzer(object):
             if score >= self.phamer_score_threshold:
                 phamer_category_counts[category] += 1
 
-        summary = basic.generate_summary(args)
+        summary = basic.generate_summary(args, header="Summary of Phamer results")
         total_count = np.sum(category_counts[[1, 2, 4, 5]]) + np.sum(phamer_category_counts[[3, 6]])
         summary += "\nTotal/Final count: %d\n" % total_count
 
         for category in xrange(1, 7):
-            summary += "VirSorter category {category}: {count}\t(Phamer: {phamer_count})\n".format(category=category,
-                                                                                                  count=category_counts[category],
-                                                                                                  phamer_count=phamer_category_counts[category])
+            summary += "VirSorter Category %s: " % category
+            summary += "%d (Phamer: %d)\n" % (category_counts[category], phamer_category_counts[category])
 
-        summary += "--> Summary of Phamer results:\n"
         summary += "True Positives: %d\n" % len(self.truth_table[0])
         summary += "False Positives: %d\n" % len(self.truth_table[1])
         summary += "False Negatives: %d\n" % len(self.truth_table[2])
         summary += "True Negatives: %d\n" % len(self.truth_table[3])
         ppv = float(len(self.truth_table[0])) / (len(self.truth_table[0]) + len(self.truth_table[1]))
-        summary += "PPV: %.2f%%\n" % (100.0 * ppv)
+        summary += "PPV: %.3f %%\n" % (100.0 * ppv)
 
         file_name = self.get_prediction_metrics_filename()
         with open(file_name, 'w') as f:
@@ -371,7 +369,11 @@ class results_analyzer(object):
         metric_names = ["True Positives", "False Positives", "False Negatives", "True Negatives",
                         "True Positive Rate", "False Positive Rate", "False Negative Rate", "True Negative Rate"
                         "Positive Predictive Value", "Negative Predictive Value", "False Discovery Rate", "Accuracy"]
-        metrics_series.to_csv(file_name, sep="\t", mode='a')
+        metric_name_map = dict(zip(metrics, metric_names))
+        new_series = pd.Series(index=metric_names)
+        for metric in metrics:
+            new_series[metric_name_map[metric]] = metrics_series[metric]
+        new_series.to_csv(file_name, sep="\t", mode='a')
 
     def make_overview_csv(self):
         """
@@ -880,7 +882,7 @@ if __name__ == '__main__':
     logger.info("Preparing GenBank files for SnapGene...")
     analyzer.prepare_gb_files_for_SnapGene()
     logger.info("Making prediction metrics file...")
-    analyzer.make_prediction_summary()
+    analyzer.make_prediction_summary(args=args)
     logger.info("Making summary file...")
     analyzer.make_overview_csv()
     logger.info("Making gene csv file...")
