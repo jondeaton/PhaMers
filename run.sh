@@ -13,7 +13,7 @@ now=`date +%Y-%m-%d.%H.%M.%S`
 
 do_taxonomy=false
 do_cross_validation=false
-do_phamer=False
+do_phamer=True
 do_analysis=True
 
 run_bijah_road_side4=true
@@ -25,6 +25,7 @@ python=$home"/anaconda2/bin/python"
 phamer_directory=$home"/Dropbox/Documents/research/Phamer"
 script_directory=$phamer_directory"/scripts"
 data_directory=$home"/Documents/research/phamer_data"
+datasets_directory=$home"/Dropbox/Documents/research/datasets"
 
 # Scripts
 phage_taxonomy=$script_directory"/feature_taxonomy.py"
@@ -74,7 +75,7 @@ fi
 # Phamer Scoring (Figure 3)
 if $do_phamer
     then
-        echo "====== Phamer Run ======"
+        echo "====== Phamer ======"
         $python $phamer -in $input_directory --data_directory $data_directory --do_tsne --debug
 fi
 
