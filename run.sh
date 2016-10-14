@@ -34,8 +34,8 @@ phamer=$script_directory"/phamer.py"
 analysis=$script_directory"/analysis.py"
 
 # Inputs
-bijah_road_side4=$phamer_directory"/bijah_road_side4"
-lower_geyser_basin=$phamer_directory"/lower_geyser_basin"
+bijah_road_side4=$datasets_directory"/bijah_road_side4"
+lower_geyser_basin=$datasets_directory"/lower_geyser_basin"
 
 # Outputs
 taxonomy_plots=$phamer_directory"/outputs/taxonomy"
