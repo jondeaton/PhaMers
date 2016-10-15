@@ -97,6 +97,7 @@ class results_analyzer(object):
 
         self.output_directory = None
         self.pie_charts_output = None
+        self.diagram_output_directory = None
 
         self.phage_features = None
 
@@ -598,9 +599,9 @@ class results_analyzer(object):
         This function is for getting a path to a file to saving a dna diagram
         :return: A path to a file where I could save a DNA diagram
         """
-        if not self.pie_charts_output:
-            self.pie_charts_output = self.get_pie_charts_output_directory()
-        return os.path.join(self.pie_charts_output, "dna_features_contig_{id}.svg".format(id=id))
+        if not self.diagram_output_directory:
+            self.diagram_output_directory = self.get_diagram_output_directory()
+        return os.path.join(self.diagram_output_directory, "dna_features_contig_{id}.svg".format(id=id))
 
     def get_genbank_output_directory(self):
         """
