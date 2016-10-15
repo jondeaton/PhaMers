@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 """
-
 analysis.py
 
 This script is for doing analysis of Phamer results and integrating results with VirSroter and IMG outputs
@@ -17,7 +16,7 @@ import matplotlib
 try:
     os.environ["DISPLAY"]
 except KeyError:
-    matplotlib.use('TkAgg')
+    matplotlib.use('Agg')
 warnings.simplefilter('ignore', UserWarning)
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -262,7 +261,7 @@ class results_analyzer(object):
 
     def make_performance_plots(self):
         """
-        This function makes an ROC curve to compare the preformance between Phamer and VirSorter
+        This function makes an ROC curve to compare the performance between Phamer and VirSorter
         :return: None
         """
         # Roc Curve
@@ -293,9 +292,8 @@ class results_analyzer(object):
             plt.ylabel('Phamer Score')
             file_name = self.get_boxplot_filename()
             plt.savefig(file_name)
-        except IndexError:
-            logger.error("Could not make boxplot for the following data.")
-            print data
+        except:
+            logger.error("Could not make boxplot for the run.")
 
     def make_contig_diagrams(self):
         """
@@ -307,7 +305,8 @@ class results_analyzer(object):
             os.mkdir(output_dir)
 
         for genbank_file in basic.search_for_file(self.get_genbank_output_directory(), end='.gb'):
-            logger.info("Making diagram for contig: {file} ...".format(file=genbank_file))
+            id = id_parser.get_id_from_genbank_filename(genbank_file)
+            logger.info("Making diagram for contig: {id} ...".format(id=id))
             plt.subplots()
             with open(genbank_file, 'r') as f:
                 record = SeqIO.read(f, "genbank")
@@ -365,13 +364,14 @@ class results_analyzer(object):
         positive_scores = np.array([self.phamer_dict[id] for id in positive_ids])
         negative_scores = np.array([self.phamer_dict[id] for id in negative_ids])
         metrics_series = learning.get_predictor_metrics(positive_scores, negative_scores, threshold=self.phamer_score_threshold)
-        metrics = ['tp', 'fp', 'fn', 'tn', 'tpr', 'fpr', 'fnr', 'tnr', 'ppv', 'npv', 'fdr', 'acc']
-        metric_names = ["True Positives", "False Positives", "False Negatives", "True Negatives",
-                        "True Positive Rate", "False Positive Rate", "False Negative Rate", "True Negative Rate"
-                        "Positive Predictive Value", "Negative Predictive Value", "False Discovery Rate", "Accuracy"]
-        metric_name_map = dict(zip(metrics, metric_names))
-        new_series = pd.Series(index=metric_names)
-        for metric in metrics:
+
+        metric_name_map = {'tp': "True Positives", "fp": "False Positives", "fn": "False Negtives",
+                           "tn": "True Negatives", "tpr": "True Positive Rate", "fpr": "False Positive Rate",
+                           "fnr": "False Negative Rate", "tnr": "True Negative Rate",
+                           "ppv": "Positive Predictive Value", "npv": "Negative Predictive Value",
+                           "fdr": "False Discovery Rate", "acc": "Accuracy"}
+        new_series = pd.Series(index=metric_name_map.values())
+        for metric in metric_name_map.keys():
             new_series[metric_name_map[metric]] = metrics_series[metric]
         new_series.to_csv(file_name, sep="\t", mode='a')
 
@@ -586,7 +586,6 @@ class results_analyzer(object):
         self.find_genbank_files()
 
     # File name getters
-
     def get_diagram_output_directory(self):
         """
         This function is for agetting a location to put contig gene diagrams
@@ -823,7 +822,11 @@ def decide_files(analyzer, args):
     if args.dataset_name:
         analyzer.dataset_name = args.dataset_name
     elif args.input_directory:
-        analyzer.dataset_name = args.input_directory
+        head, tail = os.path.split(args.input_directory)
+        if tail != '':
+            analyzer.dataset_name = tail
+        else:
+            analyzer.dataset_name = os.path.basename(head)
 
 
 if __name__ == '__main__':
@@ -877,7 +880,7 @@ if __name__ == '__main__':
 
     logger.info("Making t-SNE plot...")
     analyzer.make_tsne_plot()
-    logger.info("Making ROC plot...")
+    logger.info("Plotting ROC curve and boxplot...")
     analyzer.make_performance_plots()
     logger.info("Preparing GenBank files for SnapGene...")
     analyzer.prepare_gb_files_for_SnapGene()
