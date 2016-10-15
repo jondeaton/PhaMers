@@ -71,6 +71,7 @@ class phamer_scorer(object):
 
         self.kmer_length = 4
         self.k_clusters = 86
+        self.k_neighbors = 3
         self.k_clusters_positive = 86
         self.k_clusters_negative = 20
         self.positive_bandwidth = 0.005
@@ -257,7 +258,7 @@ class phamer_scorer(object):
         Scoring function for the knn method
         :return: A list of scores corresponding to the points
         """
-        return 2 * learning.knn(self.data_points, self.train, self.labels, k=3)
+        return 2 * learning.knn(self.data_points, self.train, self.labels, k=self.k_neighbors)
 
     def density_score_points(self):
         """
