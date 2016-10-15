@@ -3,6 +3,7 @@
 This script is meant to be used to parse ids from files
 '''
 
+import os
 import basic
 import logging
 
@@ -98,6 +99,19 @@ def get_id(header):
         return get_phage_id(header)
     else:
         return get_bacteria_id(header)
+
+def get_id_from_genbank_filename(genbank_filename, identifier="ID_"):
+    """
+    This function is for recovering the ID of a contig from the filename of
+    a GenBank file that was produced by analysis.py. This script looks for an identifier
+    like 'ID_' and then takes the id to be anything after that and before the file extension.
+    :param genbank_filename: A path to the GenBank file
+    :return: The id (string)
+    """
+    base = os.path.basename(genbank_filename)
+    no_extension = os.path.splitext(base)[0]
+    id = no_extension[no_extension.index(identifier) + len(identifier):]
+    return id
 
 
 if __name__ == '__main__':
