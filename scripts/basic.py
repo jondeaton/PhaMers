@@ -5,6 +5,7 @@ This script implements some basic function used in various places
 
 import os
 import sys
+import glob
 import numpy as np
 import logging
 
@@ -106,7 +107,7 @@ def decide_file(specified_file, found_file, abort=None):
         return None
 
 
-def search_for_file(directory, start=None, contain=None, end=None, contains=None, first=False):
+def search_for_file(directory, start=None, contain=None, end=None, contains=None, first=False, recency=False):
     """
     This function returns the path of a file within a directory that has a given ending
     :param directory: The directory to search in
@@ -115,6 +116,7 @@ def search_for_file(directory, start=None, contain=None, end=None, contains=None
     :param contains: Something that the file name mmust contain
     :param ending: The ending of the file of interest
     :param first: Return the first file found with these
+    :param recency: Sort files by when they were last changed. Most recently changed files are at the end of the array.
     :return: A string with the full path of the file of interest
     """
     all_files_in_dir = os.listdir(directory)
@@ -125,6 +127,8 @@ def search_for_file(directory, start=None, contain=None, end=None, contains=None
                       (not end or file.endswith(end))]
 
     files = [os.path.join(directory, file) for file in search_results]
+    if recency:
+        files.sort(key=lambda x: os.path.getmtime(x))
     if first:
         if len(files) > 0:
             return files[0]
