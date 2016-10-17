@@ -107,7 +107,7 @@ def decide_file(specified_file, found_file, abort=None):
         return None
 
 
-def search_for_file(directory, start=None, contain=None, end=None, contains=None, first=False, recency=False):
+def search_for_file(directory, start=None, contain=None, end=None, contains=None, first=False, recency=False, files_only=False, dirs_only=False):
     """
     This function returns the path of a file within a directory that has a given ending
     :param directory: The directory to search in
@@ -127,6 +127,10 @@ def search_for_file(directory, start=None, contain=None, end=None, contains=None
                       (not end or file.endswith(end))]
 
     files = [os.path.join(directory, file) for file in search_results]
+    if files_only and not dirs_only:
+        files = [file for file in files if not os.path.isdir(file)]
+    if dirs_only and not files_only:
+        files = [file for file in files if os.path.isdir(file)]
     if recency:
         files.sort(key=lambda x: os.path.getmtime(x))
     if first:
