@@ -4,15 +4,18 @@ analysis.py
 
 This script is for doing analysis of Phamer results and integrating results with VirSroter and IMG outputs
 """
+
 import os
 import warnings
 import logging
 import argparse
+import StringIO
 from Bio import Entrez
 from Bio import SeqIO
 from Bio import BiopythonWarning
 warnings.simplefilter('ignore', BiopythonWarning)
 import matplotlib
+matplotlib.use('Agg')
 try:
     os.environ["DISPLAY"]
 except KeyError:
@@ -305,16 +308,38 @@ class results_analyzer(object):
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)
 
-        for genbank_file in basic.search_for_file(self.get_genbank_output_directory(), end='.gb'):
-            id = id_parser.get_id_from_genbank_filename(genbank_file)
-            logger.info("Making diagram for contig: {id} ...".format(id=id))
-            plt.subplots()
-            with open(genbank_file, 'r') as f:
-                record = SeqIO.read(f, "genbank")
-            graphic_record = GraphicRecord.from_biopython_record(record)
-            graphic_record.plot(fig_width=10)
-            file_name = self.get_diagram_filename(id)
-            plt.savefig(file_name)
+        fun_label = lambda ftr: ftr.qualifiers['product']
+        fun_color = None
+        features_filter = lambda ftr: ftr.type == 'CDS'
+
+        virsorter_genbank_directory = os.path.join(self.virsorter_directory, "Predicted_viral_sequences")
+        genbank_files = basic.search_for_file(virsorter_genbank_directory, end='.gb')
+
+        for genbank_file in genbank_files[1:]:
+            # this part formats and parses the files correctly...
+            f = open(genbank_file, 'r')
+            gb_contents = f.read()
+            f.close()
+            #gb_contents = format_genbank_str_for_viewing(gb_contents)
+            handle = StringIO.StringIO(gb_contents)
+            parsed = SeqIO.parse(handle, 'genbank')
+            record_dict = SeqIO.to_dict(parsed)
+            record = record_dict[record_dict.keys()[0]]
+            # This parts plots it
+            logger.info("Making diagrams (%d) for %s ..." % (len(record_dict), os.path.basename(genbank_file)))
+            for record_key in record_dict:
+                record = record_dict[record_key]
+                id = id_parser.get_id(record.id)
+                num_features = len(record.features)
+                plt.subplots()
+                graphic_record = GraphicRecord.from_biopython_record(record, fun_label=fun_label, fun_color=fun_color, features_filter=features_filter)
+                try:
+                    graphic_record.plot(fig_width=num_features * 0.66)
+                    file_name = self.get_diagram_filename(id)
+                    plt.savefig(file_name)
+                except:
+                    logger.error("Could not make diagram for: %s" % record.id)
+                plt.close()
 
     # Summary files
     def make_prediction_summary(self, args=None):
@@ -413,7 +438,12 @@ class results_analyzer(object):
         :return: None
         """
         self.img_summary = self.get_img_summary_filename()
-        img.make_gene_csv(self.img_directory, self.img_summary, self.contig_name_id_nap, contig_ids=self.contig_ids, keyword=None)
+        f = open(self.img_summary, 'w')
+        header = img.gene_csv_header(self.img_directory)
+        f.write(header)
+        for contig_id in self.img_proucts_map:
+            next_contig = self.img_proucts_map[contig_id]
+            f.write(str(next_contig) + '\n')
 
     def prepare_gb_files_for_SnapGene(self):
         """
@@ -538,7 +568,7 @@ class results_analyzer(object):
             if len(fasta_files) == 1:
                 self.fasta_file = fasta_files[0]
 
-            phamer_directory = os.path.join(self.input_directory, "Phamer_output", "phamer")
+            phamer_directory = os.path.join(self.input_directory, "phamer_output")
             phamer_files = basic.search_for_file(phamer_directory, contain='scores', end='.csv')
             if len(phamer_files) == 1:
                 self.phamer_summary = phamer_files[0]
@@ -757,11 +787,33 @@ def prepare_for_SnapGene(genbank_file, destination):
 
         for gene in gene_prod_dict.keys():
             contents = contents.replace('/gene="%s"' % gene, '/gene="%s"' % gene_prod_dict[gene])
+
+        # This was an attempt at making these files viewable by dna_feature_viewer
+        #lines = contents.split("\n")
+        #contents = "\n".join([lines[0]] + [line.replace('/', '') for line in lines[1:]])
+        #contents.replace("\n\n", "\n")
         contents = contents.strip() + '\n//'
 
         f = open(new_gb_file, 'w')
         f.write(contents)
         f.close()
+
+
+def format_genbank_str_for_viewing(genbank_string):
+    """
+    This function makes a genbank string ready to be displayed with DNA feature viewer
+    :param genbank_string: A string of a genbank file
+    :return: A formatted string
+    """
+    parts = genbank_string.split('//')
+    for i in xrange(len(parts)):
+        part = parts[i]
+        lines = part.split("\n")
+        lines = lines[:7] + [line.replace('/', '') for line in lines[7:]]
+        parts[i] = '\n'.join(lines)
+    genbank_string = '//'.join(parts) + '//'
+    open("/Users/jonpdeaton/Desktop/formatted.gb", 'w').write(genbank_string)
+    return genbank_string
 
 
 def decide_files(analyzer, args):
@@ -812,11 +864,11 @@ def decide_files(analyzer, args):
     if args.output_directory:
         analyzer.output_directory = args.output_directory
     elif args.input_directory:
-        analyzer.output_directory = os.path.join(args.input_directory, "Phamer_output", "analysis")
+        analyzer.output_directory = os.path.join(args.input_directory, "phamer_output")
     elif args.fasta_file:
-        analyzer.output_directory = os.path.join(os.path.dirname(args.fasta_file), "Phamer_output", "analysis")
+        analyzer.output_directory = os.path.join(os.path.dirname(args.fasta_file), "phamer_output")
     elif args.features_file:
-        analyzer.output_directory = os.path.join(os.path.dirname(args.features_file), "Phamer_output", "analysis")
+        analyzer.output_directory = os.path.join(os.path.dirname(args.features_file), "phamer_output")
 
 
     # Deciding what the dataset name should be...
@@ -832,7 +884,7 @@ def decide_files(analyzer, args):
 
 if __name__ == '__main__':
 
-    script_description='This script performs secondary analysis on Phamer, VirSorter and IMG data'
+    script_description = 'This script performs secondary analysis on Phamer, VirSorter and IMG data'
     parser = argparse.ArgumentParser(description=script_description, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     input_group = parser.add_argument_group("Inputs")
