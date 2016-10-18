@@ -308,8 +308,8 @@ class results_analyzer(object):
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)
 
-        fun_label = lambda ftr: ftr.qualifiers['product']
-        fun_color = None
+        fun_label = lambda ftr: ftr.qualifiers['product'][0]
+        fun_color = seq_features_to_color
         features_filter = lambda ftr: ftr.type == 'CDS'
 
         virsorter_genbank_directory = os.path.join(self.virsorter_directory, "Predicted_viral_sequences")
@@ -320,11 +320,9 @@ class results_analyzer(object):
             f = open(genbank_file, 'r')
             gb_contents = f.read()
             f.close()
-            #gb_contents = format_genbank_str_for_viewing(gb_contents)
             handle = StringIO.StringIO(gb_contents)
             parsed = SeqIO.parse(handle, 'genbank')
             record_dict = SeqIO.to_dict(parsed)
-            record = record_dict[record_dict.keys()[0]]
             # This parts plots it
             logger.info("Making diagrams (%d) for %s ..." % (len(record_dict), os.path.basename(genbank_file)))
             for record_key in record_dict:
@@ -334,8 +332,10 @@ class results_analyzer(object):
                 plt.subplots()
                 graphic_record = GraphicRecord.from_biopython_record(record, fun_label=fun_label, fun_color=fun_color, features_filter=features_filter)
                 try:
-                    graphic_record.plot(fig_width=num_features * 0.66)
+                    fig_width = max([12, num_features * 0.66])
+                    graphic_record.plot(fig_width=fig_width)
                     file_name = self.get_diagram_filename(id)
+                    plt.title(record.id)
                     plt.savefig(file_name)
                 except:
                     logger.error("Could not make diagram for: %s" % record.id)
@@ -880,6 +880,25 @@ def decide_files(analyzer, args):
             analyzer.dataset_name = tail
         else:
             analyzer.dataset_name = os.path.basename(head)
+
+
+def seq_features_to_color(seq_feature):
+    """
+    This function converts a seq feature into a particular color
+    :param seq_feature:
+    :return:
+    """
+    product = seq_feature.qualifiers['product'][0]
+    hallmark_genes = ['terminase', 'capsid', 'portal', 'spike', 'tail', 'sheath', 'tube', 'mu'
+                      'virion formation', 'coat', 'baseplate', 'integrase', 'phage']
+    if any([gene_name in product.lower() for gene_name in hallmark_genes]):
+        return [0, 1, 0]
+    elif 'hypothetical' in product and 'protein' in product:
+        return [1, 0, 0]
+    elif 'cluster' in product:
+        return [1, 1, 0]
+    else:
+        return [0, 0, 1]
 
 
 if __name__ == '__main__':
