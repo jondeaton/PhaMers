@@ -885,8 +885,8 @@ def decide_files(analyzer, args):
 def seq_features_to_color(seq_feature):
     """
     This function converts a seq feature into a particular color
-    :param seq_feature:
-    :return:
+    :param seq_feature: A BioPython SeqFeature object
+    :return: A color that should be plotted for this feature
     """
     product = seq_feature.qualifiers['product'][0]
     hallmark_genes = ['terminase', 'capsid', 'portal', 'spike', 'tail', 'sheath', 'tube', 'mu'
