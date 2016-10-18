@@ -231,12 +231,12 @@ def find_enriched_classification(test_lineages, base_lineages, depth):
 
         x = np.array([[test_total - test_count, test_count], [base_total - base_count, base_count]])
         if x[1, 0] == 0:
-            result = (1, 1, 0, np.zeros((2,2)))
+            result = (1, 1, 0, np.zeros((2, 2)))
         else:
             result = stats.chi2_contingency(x)
 
         if result[1] <= 0.05 and test_ratio >= 0.5 and test_ratio > base_ratio:
-            logger.debug("%.1f%% %s p = %.2g" % (100*test_ratio, kind, result[1]))
+            #logger.debug("%.1f%% %s p = %.2g" % (100*test_ratio, kind, result[1]))
             return kind, result, test_ratio
 
     return None, None, None
