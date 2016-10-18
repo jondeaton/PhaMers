@@ -33,7 +33,6 @@ logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(messa
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-
 class phamer_scorer(object):
 
     def __init__(self):
@@ -479,7 +478,7 @@ def decide_files(scorer, args):
             scorer.input_drectory = os.path.dirname(args.fasta_file)
         elif not scorer.features_file and args.features_file:
             scorer.input_drectory = os.path.dirname(args.features_file)
-        scorer.output_directory = os.path.join(scorer.input_directory, "Phamer_output", "phamer")
+        scorer.output_directory = os.path.join(scorer.input_directory, "phamer_output")
 
     scorer.fasta_file = basic.decide_file(args.fasta_file, scorer.fasta_file)
     scorer.features_file = basic.decide_file(args.features_file, scorer.features_file)
