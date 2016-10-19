@@ -204,7 +204,7 @@ def test_population_lineage_differenses(test_lineages, base_lineages):
     return all_dictionaries
 
 
-def find_enriched_classification(test_lineages, base_lineages, depth):
+def find_enriched_classification(test_lineages, base_lineages, depth, verbose=False):
     """
     This function takes a set of lineages and compares them to another set of of lineages at a given depths and
     determines if any classification at that depth is significantly enriched in the test lineage. It will be counted
@@ -236,7 +236,8 @@ def find_enriched_classification(test_lineages, base_lineages, depth):
             result = stats.chi2_contingency(x)
 
         if result[1] <= 0.05 and test_ratio >= 0.5 and test_ratio > base_ratio:
-            #logger.debug("%.1f%% %s p = %.2g" % (100*test_ratio, kind, result[1]))
+            if verbose:
+                logger.debug("%.1f%% %s p = %.2g" % (100*test_ratio, kind, result[1]))
             return kind, result, test_ratio
 
     return None, None, None
