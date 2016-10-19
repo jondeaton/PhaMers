@@ -305,47 +305,99 @@ class results_analyzer(object):
         :return: None.
         """
         output_dir = self.get_diagram_output_directory()
-        if not os.path.exists(output_dir):
+        if output_dir and not os.path.exists(output_dir):
             os.mkdir(output_dir)
 
-        fun_label = lambda ftr: ftr.qualifiers['product'][0]
+        fun_label = lambda feature: feature.qualifiers['product'][0]
         fun_color = seq_features_to_color
-        features_filter = lambda ftr: ftr.type == 'CDS'
+        features_filter = lambda feature: feature.type == 'CDS'
 
         virsorter_genbank_directory = os.path.join(self.virsorter_directory, "Predicted_viral_sequences")
         genbank_files = basic.search_for_file(virsorter_genbank_directory, end='.gb')
 
-        for genbank_file in genbank_files[1:]:
+        for genbank_file in genbank_files:
             # this part formats and parses the files correctly...
             f = open(genbank_file, 'r')
             gb_contents = f.read()
             f.close()
-            handle = StringIO.StringIO(gb_contents)
-            parsed = SeqIO.parse(handle, 'genbank')
-            record_dict = SeqIO.to_dict(parsed)
+            record_dict = SeqIO.to_dict(SeqIO.parse(StringIO.StringIO(gb_contents), 'genbank'))
             # This parts plots it
-            logger.info("Making diagrams (%d) for %s ..." % (len(record_dict), os.path.basename(genbank_file)))
+            logger.info("Making (%d) diagrams for %s..." % (len(record_dict), os.path.basename(genbank_file)))
             for record_key in record_dict:
+                fig = plt.figure()
+                ax = plt.subplots(221)
                 record = record_dict[record_key]
                 id = id_parser.get_id(record.id)
                 num_features = len(record.features)
-                plt.subplots()
                 graphic_record = GraphicRecord.from_biopython_record(record, fun_label=fun_label, fun_color=fun_color, features_filter=features_filter)
+                fig_width = max([8, 2 * np.sqrt(num_features)])
                 try:
-                    fig_width = max([12, num_features * 0.66])
                     graphic_record.plot(fig_width=fig_width)
-                    file_name = self.get_diagram_filename(id)
-                    plt.title(record.id)
-                    plt.savefig(file_name)
-                except:
+                except np.linalg.linalg.LinAlgError:
                     logger.error("Could not make diagram for: %s" % record.id)
+                    #print record
+
+                # This part makes the cluster taxonomic distribution bar chart
+                ax = plt.subplot(223)
+                contig_features = self.contig_features[self.contig_ids == id]
+                appended_data = np.vstack((self.phage_features, contig_features))
+                assignments = learning.kmeans(appended_data, self.k_clusters, verbose=False)
+                cluster = assignments[-1]
+                cluster_phage = np.arange(self.num_reference_phage)[assignments[:-1] == cluster]
+                cluster_size = len(cluster_phage)
+                cluster_lineages = np.array([self.lineages[i] for i in cluster_phage])
+                all_kinds = set(cluster_lineages.ravel())
+                color_dict = distinguishable_colors.get_color_dict(all_kinds)
+                lineage_depth = cluster_lineages.shape[1]
+                y_offset = np.zeros(lineage_depth)
+                x = np.arange(lineage_depth)
+                y = np.zeros(lineage_depth)
+                for kind in all_kinds:
+                    color = color_dict[kind]
+                    y = np.array([list(cluster_lineages[:, depth]).count(kind) for depth in xrange(lineage_depth)])
+                    plt.bar(np.arange(cluster_lineages.shape[1]), y, bottom=y_offset, color=color, label=kind, edgecolor=color)
+                    y_offset += y
+                plt.legend()
+                plt.xticks()
+                plt.title("Cluster Lineages")
+                for lineage_depth in xrange(lineage_depth - 1, -1, -1):
+                    enriched_kind, result, kind_ratio = tax.find_enriched_classification(cluster_lineages,
+                                                                                         self.lineages, lineage_depth,
+                                                                                         verbose=False)
+                    if enriched_kind:
+                        text = "%.1f%% %s p=%.2g" % (100 * kind_ratio, enriched_kind, result[1])
+                        xy = (lineage_depth, kind_ratio * cluster_size)
+                        xytext = (lineage_depth + 1, 1.1 * cluster_size)
+                        ax.annotate(text, xy=xy, xytext=xytext, horizontalalignment='right', verticalalignment='top')
+                        break
+
+                # This part makes the cluster silhouette part
+                plt.subplot(224)
+                cluster_silhouettes = learning.cluster_silhouettes(appended_data, assignments, assignments[-1])
+                point_sil = cluster_silhouettes[-1]
+                cluster_silhouettes = cluster_silhouettes[:-1]
+                plt.barh(0, point_sil, color='red', alpha=0.9)
+                plt.barh(range(1, len(cluster_silhouettes) + 1), sorted(cluster_silhouettes), color='blue', alpha=0.3)
+                plt.xlabel('Silhouette')
+                plt.title('Cluster Silhouette')
+
+                # Add some descriptive text
+                category = self.contig_category_map[id]
+                plt.text(1, 1.60, 'ID: {id}'.format(id=id), fontsize=10)
+                plt.text(1, 1.45, 'Category: %d - %s' % (category, category_name(category)), fontsize=10)
+                plt.text(1, 1.30, 'Phamer score: %.3f' % self.phamer_dict[id], fontsize=10)
+
+                # save this plot!
+                file_name = self.get_diagram_filename(id)
+                plt.title(record.id)
+                plt.savefig(file_name)
                 plt.close()
 
     # Summary files
     def make_prediction_summary(self, args=None):
         """
         This function makes a summary for all the phage which were predicted by VirSorter and Phamer together
-        :return: None. It saves this summary to file.
+        :return: None. It saves this summary to file.a
         """
         all_ids = self.phamer_dict.keys()
         category_counts = np.zeros(7)
