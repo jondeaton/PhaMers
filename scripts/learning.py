@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 """
-This script is for wrapper functions of machine learning algorithms
+learning.py
+
+This script is for wrapper functions of machine learning algorithms and other
+useful functions for basic machine learning things
 """
 
 from sklearn.metrics import roc_curve, auc
@@ -126,7 +129,7 @@ def knn(queries, ref_data, ref_labels, k=3):
     return 2 * (knn_computer.predict(queries) - 0.5)
 
 
-def kmeans(data, k):
+def kmeans(data, k, verbose=False):
     """
     K-Means clustering wrapper function
     :param data: The data to cluster as a numpy array with data-points being rows
@@ -134,8 +137,9 @@ def kmeans(data, k):
     :return: A numpy array with elements corresponsing to the cluster assignment of each point
     """
     assignment = KMeans(n_clusters=k).fit(data).labels_
-    ss = silhouette_score(data, assignment)
-    logger.debug("K-means clustering (k=%d) silhouette score: %f" % (k, np.mean(ss)))
+    if verbose:
+        sil_score = silhouette_score(data, assignment)
+        logger.debug("k-means clustering (k: %d) silhouette score: %f" % (k, np.mean(sil_score)))
     return assignment
 
 
