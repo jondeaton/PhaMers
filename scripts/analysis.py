@@ -180,9 +180,8 @@ class results_analyzer(object):
 
         category = self.contig_category_map[id]
         plt.text(1, 1.60, 'ID: {id}'.format(id=id), fontsize=10)
-        plt.text(1, 1.45, 'Category: %d - %s' % (category, category_name(category)), fontsize=10)
+        plt.text(1, 1.45, 'Category: %d - %s' % (category, get_category_name(category)), fontsize=10)
         plt.text(1, 1.30, 'Phamer score: %.3f' % self.phamer_dict[id], fontsize=10)
-
         ax = plt.subplot(2, 3, 6)
         cluster_silhouettes = learning.cluster_silhouettes(appended_data, asmt, asmt[-1])
         point_sil = cluster_silhouettes[-1]
@@ -302,7 +301,7 @@ class results_analyzer(object):
     def make_contig_diagrams(self):
         """
         This function creates many DNA feature diagrams from all the files within the "genbank" directory.
-        :return: None.
+        :return: None
         """
         output_dir = self.get_diagram_output_directory()
         if output_dir and not os.path.exists(output_dir):
@@ -315,30 +314,32 @@ class results_analyzer(object):
         virsorter_genbank_directory = os.path.join(self.virsorter_directory, "Predicted_viral_sequences")
         genbank_files = basic.search_for_file(virsorter_genbank_directory, end='.gb')
 
+        from matplotlib import gridspec
         for genbank_file in genbank_files:
-            # this part formats and parses the files correctly...
             f = open(genbank_file, 'r')
             gb_contents = f.read()
             f.close()
             record_dict = SeqIO.to_dict(SeqIO.parse(StringIO.StringIO(gb_contents), 'genbank'))
-            # This parts plots it
+            # CONTIG DIAGRAM
             logger.info("Making (%d) diagrams for %s..." % (len(record_dict), os.path.basename(genbank_file)))
             for record_key in record_dict:
-                fig = plt.figure()
-                ax = plt.subplots(221)
                 record = record_dict[record_key]
                 id = id_parser.get_id(record.id)
+                logger.info("Plotting: %s..." % id)
                 num_features = len(record.features)
+                fig_width = max([12, num_features * 0.5])
+                dims = [2, max([4, num_features / 6])]
+                fig = plt.figure(figsize=(fig_width, 6))
+                gs = gridspec.GridSpec(dims[0], dims[1])
+                ax = fig.add_subplot(gs[1, :])
                 graphic_record = GraphicRecord.from_biopython_record(record, fun_label=fun_label, fun_color=fun_color, features_filter=features_filter)
-                fig_width = max([8, 2 * np.sqrt(num_features)])
                 try:
-                    graphic_record.plot(fig_width=fig_width)
+                    graphic_record.plot(fig_width=fig_width, ax=ax)
                 except np.linalg.linalg.LinAlgError:
                     logger.error("Could not make diagram for: %s" % record.id)
-                    #print record
 
-                # This part makes the cluster taxonomic distribution bar chart
-                ax = plt.subplot(223)
+                # TAXONOMY BAR CHART
+                ax = fig.add_subplot(gs[0, 0])
                 contig_features = self.contig_features[self.contig_ids == id]
                 appended_data = np.vstack((self.phage_features, contig_features))
                 assignments = learning.kmeans(appended_data, self.k_clusters, verbose=False)
@@ -351,15 +352,17 @@ class results_analyzer(object):
                 lineage_depth = cluster_lineages.shape[1]
                 y_offset = np.zeros(lineage_depth)
                 x = np.arange(lineage_depth)
-                y = np.zeros(lineage_depth)
                 for kind in all_kinds:
                     color = color_dict[kind]
                     y = np.array([list(cluster_lineages[:, depth]).count(kind) for depth in xrange(lineage_depth)])
-                    plt.bar(np.arange(cluster_lineages.shape[1]), y, bottom=y_offset, color=color, label=kind, edgecolor=color)
+                    ax.bar(np.arange(cluster_lineages.shape[1]), y, bottom=y_offset, color=color, label=kind, edgecolor=color)
                     y_offset += y
-                plt.legend()
+
+                ax.legend(fontsize=5, bbox_to_anchor=(0, 1))
+                ax.set_xlim([0, 5])
+                ax.set_ylim([0, cluster_size])
                 plt.xticks()
-                plt.title("Cluster Lineages")
+                plt.title("Cluster Lineages", fontsize=10)
                 for lineage_depth in xrange(lineage_depth - 1, -1, -1):
                     enriched_kind, result, kind_ratio = tax.find_enriched_classification(cluster_lineages,
                                                                                          self.lineages, lineage_depth,
@@ -370,26 +373,34 @@ class results_analyzer(object):
                         xytext = (lineage_depth + 1, 1.1 * cluster_size)
                         ax.annotate(text, xy=xy, xytext=xytext, horizontalalignment='right', verticalalignment='top')
                         break
+                plt.show()
 
-                # This part makes the cluster silhouette part
-                plt.subplot(224)
+                # SILHOUETTE
+                ax = fig.add_subplot(gs[0, 1])
                 cluster_silhouettes = learning.cluster_silhouettes(appended_data, assignments, assignments[-1])
                 point_sil = cluster_silhouettes[-1]
                 cluster_silhouettes = cluster_silhouettes[:-1]
-                plt.barh(0, point_sil, color='red', alpha=0.9)
-                plt.barh(range(1, len(cluster_silhouettes) + 1), sorted(cluster_silhouettes), color='blue', alpha=0.3)
-                plt.xlabel('Silhouette')
-                plt.title('Cluster Silhouette')
+                ax.barh(0, point_sil, color='red', alpha=0.9)
+                ax.barh(range(1, len(cluster_silhouettes) + 1), sorted(cluster_silhouettes), color='blue', alpha=0.3)
+                ax.set_xlim([0, 1])
+                ax.set_ylim([0, cluster_size])
+                plt.xlabel("Silhouette", fontsize=10)
+                plt.title("Cluster Silhouettes", fontsize=10)
 
-                # Add some descriptive text
+                # TEXT
                 category = self.contig_category_map[id]
-                plt.text(1, 1.60, 'ID: {id}'.format(id=id), fontsize=10)
-                plt.text(1, 1.45, 'Category: %d - %s' % (category, category_name(category)), fontsize=10)
-                plt.text(1, 1.30, 'Phamer score: %.3f' % self.phamer_dict[id], fontsize=10)
+                category_name = get_category_name(category)
+                if id in self.phamer_dict.keys():
+                    phamer_score = self.phamer_dict[id]
+                else:
+                    phamer_score = 0
+                text = "{contig_name}\nCategory: {cat_num} - {cat_name}\nPhamer score: {score}".format(contig_name=record.id, cat_num=category,cat_name=category_name, score=phamer_score)
+                text_x = 1.1
+                text_y = cluster_size
+                plt.text(text_x, text_y, text, fontsize=9)
 
-                # save this plot!
+                # SAVE
                 file_name = self.get_diagram_filename(id)
-                plt.title(record.id)
                 plt.savefig(file_name)
                 plt.close()
 
@@ -601,11 +612,6 @@ class results_analyzer(object):
         false_negatives = [id for id in self.phamer_dict.keys() if id in vs_ids and id not in phamer_ids]
         true_negatives = [id for id in self.phamer_dict.keys() if id not in phamer_ids and id not in vs_ids]
 
-        logger.info("%d true positives" % len(true_positives))
-        logger.info("%d false positives" % len(false_positives))
-        logger.info("%d false negatives" % len(false_negatives))
-        logger.info("%d true negatives" % len(true_negatives))
-
         return true_positives, false_positives, false_negatives, true_negatives
 
     # File Location
@@ -775,7 +781,7 @@ def get_id_header_map(contigs_file):
     return map
 
 
-def category_name(category):
+def get_category_name(category):
     """
     This function returns the qualitative confidence that a phage of a certain category is a phage
     :param category: The integer from 1 to 3 that represents the category of VirSorter prediction
