@@ -257,7 +257,7 @@ def read_virsorter_file(filename, dataset=''):
         if line.startswith('##'):
             if 'category' in line:
                 kind = line.split('-')[1].strip()
-                category = line.split('-')[2].strip()
+                category = int(line.split('-')[2].strip().split()[1])
         else:
             vs_phage.append(phage(kind, category, dataset, line))
     return vs_phage
