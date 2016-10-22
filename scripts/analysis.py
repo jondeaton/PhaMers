@@ -30,7 +30,6 @@ import fileIO
 import id_parser
 import taxonomy as tax
 import img_parser as img
-import cross_validate as cv
 import distinguishable_colors
 import learning
 import basic
@@ -268,12 +267,27 @@ class results_analyzer(object):
         :return: None
         """
         # Roc Curve
-        tp, fp, fn, tn = self.truth_table
-        plotter = cv.cross_validator()
-        plotter.positive_scores = [self.phamer_dict[id] for id in tp + fn]
-        plotter.negative_scores = [self.phamer_dict[id] for id in fp + tn]
-        plotter.output_directory = self.output_directory
-        plotter.plot_ROC()
+        plt.figure()
+        which_categories = [None, [1, 2, 4, 5]]
+        colors = ['b', 'r']
+        labels = ['All', 'Confident']
+        for i in xrange(2):
+            tp, fp, fn, tn = self.get_virsorter_phamer_truth_table(categories=which_categories[i])
+            positive_scores = [self.phamer_dict[id] for id in tp + fn]
+            negative_scores = [self.phamer_dict[id] for id in fp + tn]
+            fpr, tpr, roc_auc = learning.predictor_performance(positive_scores, negative_scores)
+            plt.plot(fpr, tpr, colors[i], label='%s (AUC: %0.3f)' % (labels[i], roc_auc))
+        plt.plot([0, 1], [0, 1], 'k--')
+        plt.xlim([0.0, 1.0])
+        plt.ylim([0.0, 1.0])
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.legend(loc="lower right")
+        plt.grid(True)
+        plt.minorticks_on()
+        plt.grid(b=True, which='minor')
+        file_name = self.get_roc_filename()
+        plt.savefig(file_name)
 
         # Box Plot
         plt.figure()
@@ -617,10 +631,12 @@ class results_analyzer(object):
                 category_map[id] = category
         return category_map
 
-    def get_virsorter_phamer_truth_table(self):
+    def get_virsorter_phamer_truth_table(self, categories=None):
         """
         This function finds the true positives, false positives, false negatives, and true positives for phage
-        predictions from phamer and from VirSorter
+        predictions from Phamer and from VirSorter
+        :param categories: Give a list of VirSorter categories for which phage should only be counted as putative
+        predictions if they fit these categories
         :return: A tuple of lists of IDs for true positives, false positives, false negatives, and true positives in that order
         """
         phamer_ids = [id for id in self.phamer_dict.keys() if self.phamer_dict[id] >= self.phamer_score_threshold]
@@ -629,7 +645,7 @@ class results_analyzer(object):
         for phage in vs_phage:
             if phage.id in self.phamer_dict.keys():
                 phage.phamer_score = self.phamer_dict[phage.id]
-        vs_ids = [phage.id for phage in vs_phage]
+        vs_ids = [phage.id for phage in vs_phage if categories is None or phage.category in categories]
 
         true_positives = [id for id in self.phamer_dict.keys() if id in vs_ids and id in phamer_ids]
         false_positives = [id for id in self.phamer_dict.keys() if id in phamer_ids and id not in vs_ids]
@@ -775,6 +791,12 @@ class results_analyzer(object):
         """
         return os.path.join(self.output_directory, '%s.summary' % os.path.basename(os.path.relpath(self.img_directory)))
 
+    def get_roc_filename(self):
+        """
+        This function makes a filename for the roc curve comparing performance
+        :return: A path to file to save an ROC curve
+        """
+        return os.path.join(self.output_directory, 'roc.svg')
 
 # === FUNCTIONS ===
 def get_name_id_map(contigs_file=None, headers=None):
