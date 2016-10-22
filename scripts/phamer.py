@@ -257,7 +257,7 @@ class phamer_scorer(object):
         Scoring function for the knn method
         :return: A list of scores corresponding to the points
         """
-        return 2 * learning.knn(self.data_points, self.train, self.labels, k=self.k_neighbors)
+        return learning.knn(self.data_points, self.train, self.labels, k=self.k_neighbors)
 
     def density_score_points(self):
         """
