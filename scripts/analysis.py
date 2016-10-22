@@ -310,6 +310,7 @@ class results_analyzer(object):
         fun_label = lambda feature: feature.qualifiers['product'][0]
         fun_color = seq_features_to_color
         features_filter = lambda feature: feature.type == 'CDS'
+        hierarchy = ['Viral', 'Baltimore', 'Order', 'Family', 'Sub-family']
 
         virsorter_genbank_directory = os.path.join(self.virsorter_directory, "Predicted_viral_sequences")
         genbank_files = basic.search_for_file(virsorter_genbank_directory, end='.gb')
@@ -327,8 +328,8 @@ class results_analyzer(object):
                 id = id_parser.get_id(record.id)
                 logger.info("Plotting: %s..." % id)
                 num_features = len(record.features)
-                fig_width = max([12, num_features * 0.5])
-                dims = [2, max([4, num_features / 6])]
+                fig_width = max(15, num_features * 0.5)
+                dims = [2, max(5, num_features / 6)]
                 fig = plt.figure(figsize=(fig_width, 6))
                 gs = gridspec.GridSpec(dims[0], dims[1])
                 ax = fig.add_subplot(gs[1, :])
@@ -338,7 +339,7 @@ class results_analyzer(object):
                 except np.linalg.linalg.LinAlgError:
                     logger.error("Could not make diagram for: %s" % record.id)
 
-                # TAXONOMY BAR CHART
+                # SILHOUETTE
                 ax = fig.add_subplot(gs[0, 0])
                 contig_features = self.contig_features[self.contig_ids == id]
                 appended_data = np.vstack((self.phage_features, contig_features))
@@ -346,46 +347,40 @@ class results_analyzer(object):
                 cluster = assignments[-1]
                 cluster_phage = np.arange(self.num_reference_phage)[assignments[:-1] == cluster]
                 cluster_size = len(cluster_phage)
-                cluster_lineages = np.array([self.lineages[i] for i in cluster_phage])
-                all_kinds = set(cluster_lineages.ravel())
-                color_dict = distinguishable_colors.get_color_dict(all_kinds)
-                lineage_depth = cluster_lineages.shape[1]
-                y_offset = np.zeros(lineage_depth)
-                x = np.arange(lineage_depth)
-                for kind in all_kinds:
-                    color = color_dict[kind]
-                    y = np.array([list(cluster_lineages[:, depth]).count(kind) for depth in xrange(lineage_depth)])
-                    ax.bar(np.arange(cluster_lineages.shape[1]), y, bottom=y_offset, color=color, label=kind, edgecolor=color)
-                    y_offset += y
+                if cluster_size > 0:
+                    cluster_lineages = np.array([self.lineages[i] for i in cluster_phage])
+                    all_kinds = set(cluster_lineages.ravel())
+                    color_dict = distinguishable_colors.get_color_dict(all_kinds)
+                    lineage_depth = cluster_lineages.shape[1]
 
-                ax.legend(fontsize=5, bbox_to_anchor=(0, 1))
-                ax.set_xlim([0, 5])
-                ax.set_ylim([0, cluster_size])
-                plt.xticks()
-                plt.title("Cluster Lineages", fontsize=10)
-                for lineage_depth in xrange(lineage_depth - 1, -1, -1):
-                    enriched_kind, result, kind_ratio = tax.find_enriched_classification(cluster_lineages,
-                                                                                         self.lineages, lineage_depth,
-                                                                                         verbose=False)
-                    if enriched_kind:
-                        text = "%.1f%% %s p=%.2g" % (100 * kind_ratio, enriched_kind, result[1])
-                        xy = (lineage_depth, kind_ratio * cluster_size)
-                        xytext = (lineage_depth + 1, 1.1 * cluster_size)
-                        ax.annotate(text, xy=xy, xytext=xytext, horizontalalignment='right', verticalalignment='top')
-                        break
-                plt.show()
+                    cluster_silhouettes = learning.cluster_silhouettes(appended_data, assignments, assignments[-1])
+                    point_sil = cluster_silhouettes[-1]
+                    cluster_silhouettes = cluster_silhouettes[:-1]
+                    ax.barh(0, point_sil, color='red', alpha=0.9)
+                    ax.barh(range(1, len(cluster_silhouettes) + 1), sorted(cluster_silhouettes), color='blue', alpha=0.3)
+                    ax.set_xlim([0, 1])
+                    ax.set_ylim([0, cluster_size])
+                    plt.xlabel("Silhouette", fontsize=9)
+                    plt.tick_params(axis='both', which='major', labelsize=9)
+                    plt.title("Cluster Silhouettes", fontsize=10)
 
-                # SILHOUETTE
-                ax = fig.add_subplot(gs[0, 1])
-                cluster_silhouettes = learning.cluster_silhouettes(appended_data, assignments, assignments[-1])
-                point_sil = cluster_silhouettes[-1]
-                cluster_silhouettes = cluster_silhouettes[:-1]
-                ax.barh(0, point_sil, color='red', alpha=0.9)
-                ax.barh(range(1, len(cluster_silhouettes) + 1), sorted(cluster_silhouettes), color='blue', alpha=0.3)
-                ax.set_xlim([0, 1])
-                ax.set_ylim([0, cluster_size])
-                plt.xlabel("Silhouette", fontsize=10)
-                plt.title("Cluster Silhouettes", fontsize=10)
+                    # TAXONOMY BAR CHART
+                    ax = fig.add_subplot(gs[0, 2])
+                    y_offset = np.zeros(lineage_depth)
+                    x = np.arange(lineage_depth)
+                    for kind in all_kinds:
+                        color = color_dict[kind]
+                        y = np.array([list(cluster_lineages[:, depth]).count(kind) for depth in xrange(lineage_depth)])
+                        ax.bar(np.arange(cluster_lineages.shape[1]), y, bottom=y_offset, color=color, label=kind, edgecolor=color)
+                        y_offset += y
+
+                    ax.legend(fontsize=5, bbox_to_anchor=(-0.1, 1), ncol=1 + int(len(all_kinds) > 20))
+                    ax.set_xlim([0, 5])
+                    ax.set_ylim([0, cluster_size])
+                    plt.xticks(0.25 + np.arange(5), hierarchy, rotation=45)
+                    plt.tick_params(axis='both', which='major', labelsize=9)
+                    plt.title("Cluster Taxonomy", fontsize=7)
+                    plt.show()
 
                 # TEXT
                 category = self.contig_category_map[id]
@@ -393,12 +388,41 @@ class results_analyzer(object):
                 if id in self.phamer_dict.keys():
                     phamer_score = self.phamer_dict[id]
                 else:
-                    phamer_score = 0
-                text = "{contig_name}\nCategory: {cat_num} - {cat_name}\nPhamer score: {score}".format(contig_name=record.id, cat_num=category,cat_name=category_name, score=phamer_score)
-                text_x = 1.1
-                text_y = cluster_size
+                    phamer_score = "Not scored"
+
+                text = record.id
+                if self.dataset_name:
+                    text += "\nDataset: %s" % self.dataset_name
+                text += "\nCategory: {cat_num} - {cat_name}".format(cat_num=category,cat_name=category_name)
+                text += "\nPhamer score: {score}".format(score=phamer_score)
+
+                if cluster_size > 0:
+                    for lineage_depth in xrange(lineage_depth - 1, -1, -1):
+                        tup = tax.find_enriched_classification(cluster_lineages, self.lineages, lineage_depth)
+                        enriched_kind, result, kind_ratio = tup
+                        if enriched_kind:
+                            text += "\nCluster enriched: %.1f%% %s p=%.2g (%s)" % (100 * kind_ratio, enriched_kind, result[1], hierarchy[min(4, lineage_depth)])
+                            break
+
+                lines = [line for line in open(self.img_summary, 'r').readlines() if line.startswith(str(id) + ',')]
+                text += "\nIMG Annotations:"
+                i = 1
+                phylogenies = []
+                for line in lines:
+                    product = line.split(', ')[2]
+                    phylogeny = line.split(', ')[3]
+                    phylogenies.append(phylogeny.split(';'))
+                    if not 'missing' in phylogeny.lower() and not 'missing' in product.lower():
+                        text += "\n %d. %s" % (i, product)
+                        if 'virus' in phylogeny.lower() or 'phage' in phylogeny.lower():
+                            text += " (Viral)"
+                    i += 1
+
+                text_x = 5.5
+                text_y = 0
                 plt.text(text_x, text_y, text, fontsize=9)
 
+                #plt.tight_layout()
                 # SAVE
                 file_name = self.get_diagram_filename(id)
                 plt.savefig(file_name)
@@ -689,7 +713,7 @@ class results_analyzer(object):
         """
         if not self.diagram_output_directory:
             self.diagram_output_directory = self.get_diagram_output_directory()
-        return os.path.join(self.diagram_output_directory, "dna_features_contig_{id}.svg".format(id=id))
+        return os.path.join(self.diagram_output_directory, "contig_diagram_{id}.svg".format(id=id))
 
     def get_genbank_output_directory(self):
         """
@@ -1022,7 +1046,5 @@ if __name__ == '__main__':
     analyzer.make_gene_csv()
     logger.info("Making contig diagrams...")
     analyzer.make_contig_diagrams()
-    logger.info("Making taxonomy pie charts...")
-    analyzer.make_cluster_taxonomy_pies()
 
     logger.info("Analysis complete.")
