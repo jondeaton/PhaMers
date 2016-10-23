@@ -23,6 +23,7 @@ except KeyError:
 warnings.simplefilter('ignore', UserWarning)
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib import gridspec
 import numpy as np
 from dna_features_viewer import GraphicRecord
 
@@ -107,8 +108,8 @@ class results_analyzer(object):
 
         self.lineage_dict = None
 
-        self.fields = ['Contig_Name', 'Contig_ID', 'Length', 'VirSorter_Category', 'Phamer_Score', 'IMG_Products_and_Phylogenies']
-        self.phylogeny_titles = ['Viruses', 'Baltimore Classification', 'Order', 'Family', 'Sub-Family', 'Genus']
+        self.summary_fields = ['Header', 'Contig_Name', 'Contig_ID', 'Length', 'VirSorter_Category', 'Phamer_Score', 'IMG_Products_and_Phylogenies']
+        self.phylogeny_names = ['Viruses', 'Baltimore Classification', 'Order', 'Family', 'Sub-Family', 'Genus']
 
         self.cluster_algorithm = 'kmeans'
         self.k_clusters = 86
@@ -127,92 +128,6 @@ class results_analyzer(object):
         self.tn_color = 'green'
 
     # Plotting Methods
-    def make_pie_lineage_charts(self, id):
-        """
-        This function makes several lineage pie charts contig based on nearby phage points
-        :param id: The id of the
-        :return: None... just makes a savage plot
-        """
-        contig_features = self.contig_features[self.contig_ids == id]
-
-        # Append this contig's features onto those of the reference phage, and then cluster them all
-        appended_data = np.vstack((self.phage_features, contig_features))
-        if self.cluster_algorithm == 'dbscan':
-            asmt = learning.dbscan(appended_data, eps=self.eps, min_samples=self.min_samples)
-        elif self.cluster_algorithm == 'kmeans':
-            asmt = learning.kmeans(appended_data, self.k_clusters)
-        else:
-            # The default is k-means I guess...
-            asmt = learning.kmeans(appended_data, self.k_clusters)
-
-        # Find which cluster the contig was assigned to
-        cluster = asmt[-1]
-        cluster_phage = np.arange(self.num_reference_phage)[asmt[:-1] == cluster]
-        cluster_lineages = [self.lineages[i] for i in cluster_phage]
-
-        plt.figure(figsize=self.pie_plot_figsize)
-        for lineage_depth in xrange(1, 6):
-            ax = plt.subplot(2, 3, lineage_depth)
-            kinds = [lineage[lineage_depth] for lineage in cluster_lineages]
-            diversity = set(kinds)
-
-            enriched_kind, result, kind_ratio = tax.find_enriched_classification(cluster_lineages, self.lineages, lineage_depth)
-            if enriched_kind:
-                plt.text(-1, -1.3, "%.1f%% %s p=%.2g" % (100 * kind_ratio, enriched_kind, result[1]))
-
-            ratios, labels, colors = [], [], []
-            for kind in diversity:
-                ratios.append(kinds.count(kind))
-                labels.append(kind.replace('like', ' like '))
-                colors.append(self.lineage_color_map[kind])
-            colors = np.array(colors)
-
-            box = ax.get_position()
-            ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-            patches, texts = plt.pie(ratios, colors=colors, shadow=False, startangle=0, labeldistance=1.0)
-            plt.title(self.phylogeny_titles[lineage_depth])
-            legend_loc = ([0.9, -0.4][lineage_depth % 3 != 0], 0.5)
-            plt.legend(patches, labels=labels, fontsize=5, loc='center left', bbox_to_anchor=legend_loc, title="Legend", fancybox=True)
-
-            for text in texts:
-                text.set_fontsize(5)
-
-        category = self.contig_category_map[id]
-        plt.text(1, 1.60, 'ID: {id}'.format(id=id), fontsize=10)
-        plt.text(1, 1.45, 'Category: %d - %s' % (category, get_category_name(category)), fontsize=10)
-        plt.text(1, 1.30, 'Phamer score: %.3f' % self.phamer_dict[id], fontsize=10)
-        ax = plt.subplot(2, 3, 6)
-        cluster_silhouettes = learning.cluster_silhouettes(appended_data, asmt, asmt[-1])
-        point_sil = cluster_silhouettes[-1]
-        cluster_silhouettes = cluster_silhouettes[:-1]
-
-        plt.barh(0, point_sil, color='red', alpha=0.9)
-        plt.barh(range(1, len(cluster_silhouettes)+1), sorted(cluster_silhouettes), color='blue', alpha=0.3)
-        plt.xlabel('Silhouette')
-        plt.title('Cluster Silhouette')
-
-        image_file = self.get_pie_charts_file_name(id)
-        plt.savefig(image_file)
-
-    def make_cluster_taxonomy_pies(self):
-        """
-        This function takes True Positive prediction from Phamer (as compared to VirSorter) makes plots of the
-        lineages of nearby point for each, putting those files all into one destination directory with file names that
-        indicate which point is being represented
-        :return: None
-        """
-        true_positives, false_positives, false_negatives, true_negatives = self.truth_table
-        plot_number = 1
-        which_ids = true_positives + false_negatives
-        output_dir = self.get_pie_charts_output_directory()
-        if not os.path.exists(output_dir):
-            os.mkdir(output_dir)
-
-        for id in which_ids:
-            logger.info("Making plots for id: {id} ({num} of {total}) ...".format(id=id, num=plot_number, total=len(which_ids)))
-            self.make_pie_lineage_charts(id)
-            plot_number += 1
-
     def make_tsne_plot(self):
         """
         This makes a plot that compares results from Phamer and VirSorter by displaying a t-SNE plot
@@ -329,7 +244,6 @@ class results_analyzer(object):
         virsorter_genbank_directory = os.path.join(self.virsorter_directory, "Predicted_viral_sequences")
         genbank_files = basic.search_for_file(virsorter_genbank_directory, end='.gb')
 
-        from matplotlib import gridspec
         for genbank_file in genbank_files:
             f = open(genbank_file, 'r')
             gb_contents = f.read()
@@ -403,7 +317,6 @@ class results_analyzer(object):
                     phamer_score = self.phamer_dict[id]
                 else:
                     phamer_score = "Not scored"
-
                 text = record.id
                 if self.dataset_name:
                     text += "\nDataset: %s" % self.dataset_name
@@ -418,15 +331,21 @@ class results_analyzer(object):
                             text += "\nCluster enriched: %.1f%% %s p=%.2g (%s)" % (100 * kind_ratio, enriched_kind, result[1], hierarchy[min(4, lineage_depth)])
                             break
 
-                lines = [line for line in open(self.img_summary, 'r').readlines() if line.startswith(str(id) + ',')]
-                text += "\nIMG Annotations:"
+                f = open(self.img_summary, 'r')
+                lines = [line for line in f.readlines() if line.startswith(str(id) + ',')]
+                f.close()
+                if len(lines) > 0:
+                    text += "\nIMG Annotations:"
                 i = 1
                 phylogenies = []
                 for line in lines:
                     product = line.split(', ')[2]
                     phylogeny = line.split(', ')[3]
                     phylogenies.append(phylogeny.split(';'))
-                    if not 'missing' in phylogeny.lower() and not 'missing' in product.lower():
+                    if text.count('\n') > 15:
+                        text += "\n More genes listed in: %s" % os.path.basename(self.img_summary)
+                        break
+                    elif not 'missing' in phylogeny.lower() and not 'missing' in product.lower():
                         text += "\n %d. %s" % (i, product)
                         if 'virus' in phylogeny.lower() or 'phage' in phylogeny.lower():
                             text += " (Viral)"
@@ -436,7 +355,6 @@ class results_analyzer(object):
                 text_y = 0
                 plt.text(text_x, text_y, text, fontsize=9)
 
-                #plt.tight_layout()
                 # SAVE
                 file_name = self.get_diagram_filename(id)
                 plt.savefig(file_name)
@@ -446,7 +364,7 @@ class results_analyzer(object):
     def make_prediction_summary(self, args=None):
         """
         This function makes a summary for all the phage which were predicted by VirSorter and Phamer together
-        :return: None. It saves this summary to file.a
+        :return: None. It saves this summary to file
         """
         all_ids = self.phamer_dict.keys()
         category_counts = np.zeros(7)
@@ -502,15 +420,15 @@ class results_analyzer(object):
             new_series[metric_name_map[metric]] = metrics_series[metric]
         new_series.to_csv(file_name, sep="\t", mode='a')
 
-    def make_overview_csv(self):
+    def make_integrated_summary(self):
         """
         This function makes a CSV summary of all the results from VirSroter, Phamer, and IMG
         :return: None
         """
-        if self.dataset_name is not None:
-            fields = self.fields[:2] + ['DataSet'] + self.fields[2:]
-        ids = self.virsroter_map.keys()
-        df = pd.DataFrame(columns=fields)
+        criteria = lambda id: self.virsroter_map[id] in [1, 2, 4, 5] or (id in self.phamer_dict.keys() and self.phamer_dict[id] > self.phamer_score_threshold)
+        ids = [id for id in self.virsroter_map.keys() if criteria(id)]
+        df = pd.DataFrame(columns=self.summary_fields)
+        df['Header'] = [self.id_header_map[id] for id in ids]
         df['Contig_ID'] = ids
         df['Contig_Name'] = [id_parser.get_contig_name(self.id_header_map[id]) for id in ids]
         df['Length'] = [id_parser.get_contig_length(self.id_header_map[id]) for id in ids]
@@ -1063,7 +981,7 @@ if __name__ == '__main__':
     logger.info("Making prediction metrics file...")
     analyzer.make_prediction_summary(args=args)
     logger.info("Making summary file...")
-    analyzer.make_overview_csv()
+    analyzer.make_integrated_summary()
     logger.info("Making gene csv file...")
     analyzer.make_gene_csv()
     logger.info("Making contig diagrams...")
