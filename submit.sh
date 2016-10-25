@@ -23,7 +23,7 @@ run_lower_geyser_basin=false
 # Locations
 home=~
 python=$home"/anaconda/bin/python"
-phamer_directory=$home"/Phamer"
+phamer_directory=$home"/PhaMers"
 script_directory=$phamer_directory"/scripts"
 data_directory=$home"/data"
 datasets_directory=$home"/datasets"
