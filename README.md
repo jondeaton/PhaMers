@@ -1,6 +1,6 @@
 # PhaMers
 
-This repository contains code for running Phamer, a phage identification tool. This main scripts in this repository are the following:
+This repository contains code for running PhaMers, a phage identification tool. This main scripts in this repository are the following:
 
 
 1) phamer.py - This script takes a fasta file as an input, and scores each sequence by it's comparing k-mer frequencies to those of reference phage and bacterial genomes. Positive scores indicate more phage-like whereas negative scores indicate a sequence is less phage-like. This is done using basic machine learning methods on k-mer frequency vectors. This script also performs t-SNE on the k-mer frequency vectors so that contigs can be visually inspected and compared to reference genomes.
