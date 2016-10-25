@@ -13,11 +13,11 @@ now=`date +%Y-%m-%d.%H.%M.%S`
 
 do_taxonomy=false
 do_cross_validation=false
-do_phamer=True
-do_analysis=True
+do_phamer=true
+do_analysis=true
 
-run_bijah_road_side4=true
-run_lower_geyser_basin=false
+run_bijah_road_side4=false
+run_lower_geyser_basin=true
 
 # Locations
 home=~
@@ -76,7 +76,8 @@ fi
 if $do_phamer
     then
         echo "====== Phamer ======"
-        $python $phamer -in $input_directory --data_directory $data_directory --do_tsne --debug
+        #$python $phamer -in $input_directory --data_directory $data_directory --do_tsne --debug
+        $python $phamer -in $input_directory --data_directory $data_directory --debug
 fi
 
 # Analysis (Figure 4)
