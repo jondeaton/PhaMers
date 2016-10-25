@@ -1,4 +1,4 @@
-# Phamer
+# PhaMers
 
 This repository contains code for running Phamer, a phage identification tool. This main scripts in this repository are the following:
 
