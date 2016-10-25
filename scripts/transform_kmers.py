@@ -70,9 +70,9 @@ def transform_kmers(counts, reverse=True, complement=False, symbols=DNA):
     num_symbols = len(symbols)
     k = int(round(np.math.log(counts.shape[1], num_symbols)))
     counts = counts.transpose()
-    if reverse:
+    if reverse and not complement:
         counts += counts[get_reverse_indicies(k)]
-    if complement:
+    if complement and not reverse:
         counts += counts[get_DNA_complement_indicies(k)]
     if reverse and complement:
         counts += counts[get_reverse_complement_indicies(k)]

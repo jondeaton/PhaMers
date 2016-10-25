@@ -12,6 +12,7 @@ import kmer
 import taxonomy
 from analysis import phage
 import logging
+import transform_kmers
 
 __version__ = 1.0
 __author__ = "Jonathan Deaton (jdeaton@stanford.edu)"
@@ -106,7 +107,7 @@ def read_headers_file(header_file):
     return [line.strip() for line in open(header_file, 'r').readlines() if not line.startswith('#')]
 
 
-def read_feature_file(feature_file, normalize=False, id=None, old=False):
+def read_feature_file(feature_file, normalize=False, id=None, old=False, transform=True):
     """
     A function for reading a k-mer file
     :param kmer_file: The file name of the k-mer file, the file should be in a csv format
@@ -122,6 +123,9 @@ def read_feature_file(feature_file, normalize=False, id=None, old=False):
         data = np.loadtxt(feature_file, delimiter=',', dtype=str)
         ids = list(data[:, 0].transpose())
         features = data[:, 1:].astype(int)
+
+    if transform:
+        features = transform_kmers.transform_kmers(features, reverse=True, complement=True)
 
     if normalize:
         features = kmer.normalize_counts(features)
