@@ -104,6 +104,8 @@ class cross_validator(object):
         plt.legend(loc='best')
         plt.grid(True)
         file_name = self.get_score_distribution_filename()
+        if file_name and not os.path.isdir(os.path.dirname(file_name)):
+            os.mkdir(os.path.dirname(file_name))
         plt.savefig(file_name)
         plt.close()
 
