@@ -129,7 +129,7 @@ def knn(queries, ref_data, ref_labels, k=3):
     return 2 * (knn_computer.predict(queries) - 0.5)
 
 
-def kmeans(data, k, verbose=False):
+def kmeans(data, k, verbose=False, sort_by_size=False):
     """
     K-Means clustering wrapper function
     :param data: The data to cluster as a numpy array with data-points being rows
@@ -140,6 +140,12 @@ def kmeans(data, k, verbose=False):
     if verbose:
         sil_score = silhouette_score(data, assignment)
         logger.debug("k-means clustering (k: %d) silhouette score: %f" % (k, np.mean(sil_score)))
+    if sort_by_size:
+        size_map = {i: np.sum(assignment == i) for i in set(assignment) - set([-1])}
+        sorted_sizes = sorted(size_map.values())
+        new_assignments_map = {i: sorted_sizes.index(size_map[i]) for i in size_map.keys()}
+        new_assignments_map[-1] = -1
+        assignment = np.array([new_assignments_map[i] for i in assignment])
     return assignment
 
 
