@@ -34,7 +34,7 @@ def cluster_deviations(data, assignment):
     :param assignment: A clustering assignment array for each of the data-points
     :return: A numpy array containing the MAD for the points from each cluster
     """
-    num_clusters = max(assignment)
+    num_clusters = len(set(assignment) - set([-1]))
     centroids = get_centroids(data, assignment)
     deviations = np.zeros(num_clusters)
     for cluster in xrange(num_clusters):
@@ -65,7 +65,6 @@ def closest_to(point, picks):
     return picks[np.argmin(distances(point, picks))]
 
 
-
 def get_centroids(data, assignment):
     """
     A function for getting the centroids of clustered data-points
@@ -73,12 +72,11 @@ def get_centroids(data, assignment):
     :param assignment: A numpy array containing the cluster assignments. Cluster indexing should start at zero.
     :return: A numpy array with rows being the centroid points for each cluster of data-points
     """
-    num_clusters = 1 + max(assignment)
-
+    num_clusters = len(set(assignment) - set([-1]))
     if num_clusters == 0:
         logger.warning("No clusters assigned to data.")
 
-    centroids = [np.mean(data[assignment == cluster_idx], axis=0) for cluster_idx in sorted(set(assignment)) if cluster_idx != -1]
+    centroids = [np.mean(data[assignment == cluster_idx], axis=0) for cluster_idx in sorted(set(assignment) - set([-1]))]
     return np.array(centroids)
 
 
@@ -137,19 +135,17 @@ def kmeans(data, k, verbose=False, sort_by_size=False):
     :return: A numpy array with elements corresponsing to the cluster assignment of each point
     """
     assignment = KMeans(n_clusters=k).fit(data).labels_
+    if type(assignment) != np.ndarray:
+        assignment = np.array(assignment)
     if verbose:
         sil_score = silhouette_score(data, assignment)
         logger.debug("k-means clustering (k: %d) silhouette score: %f" % (k, np.mean(sil_score)))
     if sort_by_size:
-        size_map = {i: np.sum(assignment == i) for i in set(assignment) - set([-1])}
-        sorted_sizes = sorted(size_map.values())
-        new_assignments_map = {i: sorted_sizes.index(size_map[i]) for i in size_map.keys()}
-        new_assignments_map[-1] = -1
-        assignment = np.array([new_assignments_map[i] for i in assignment])
+        assignment = sort_assignment_by_size(assignment, ascending=False)
     return assignment
 
 
-def dbscan(data, eps, min_samples):
+def dbscan(data, eps, min_samples, sort_by_size=False):
     """
     DBSCAN wrapper function
     :param data: A numpy with rows that are data-points in a vector space
@@ -157,11 +153,32 @@ def dbscan(data, eps, min_samples):
     :param min_samples: The minimum number of samples per cluster
     :return: An array specifying the cluster assignment of each data-point
     """
-    asmt = DBSCAN(eps=eps, min_samples=min_samples).fit(data).labels_
-    num_clusters = 1 + max(asmt)
-    pct_unassigned = 100.0 * np.sum(asmt == -1) / float(len(asmt))
-    logger.debug('%d positive clusters, %.1f%% unassigned' % (num_clusters, pct_unassigned))
-    return asmt
+    assignment = DBSCAN(eps=eps, min_samples=min_samples).fit(data).labels_
+    num_clusters = len(set(assignment) - set([-1]))
+    pct_unassigned = 100.0 * np.sum(assignment == -1) / float(len(assignment))
+    logger.debug('%d clusters, %.1f%% unassigned' % (num_clusters, pct_unassigned))
+    if sort_by_size:
+        assignment = sort_assignment_by_size(assignment, ascending=False)
+    return assignment
+
+
+def sort_assignment_by_size(assignment, ascending=True):
+    """
+    This function sorts a data cluster assignment by size
+    :param assignment: A numpy array specifying cluster assignment. -1 means unassigned and this will
+    not be included in the ordering
+    :return: A new assignmet numpy array but where the 0th cluster has the fewest members, and the remaining
+    clustes are sorted in ascending order.
+    """
+    get_cluster_size = lambda cluster: np.sum(assignment == cluster)
+    cluster_set = list(set(assignment) - set([-1]))
+    cluster_sizes = [get_cluster_size(cluster) for cluster in cluster_set]
+    sorted_assignment = [cluster for (size, cluster) in sorted(zip(cluster_sizes, cluster_set))[::[-1, 1][ascending]]]
+    new_assignment_map = dict(zip(sorted_assignment, np.arange(len(sorted_assignment))))
+    new_assignment = np.ones(len(assignment), dtype=int) * -1
+    for cluster in sorted_assignment:
+        new_assignment[assignment == cluster] = new_assignment_map[cluster]
+    return new_assignment
 
 
 def predictor_performance(positive_scores, negative_scores):
@@ -176,6 +193,7 @@ def predictor_performance(positive_scores, negative_scores):
     false_positive_rate, true_positive_rate, _ = roc_curve(truth, predictions)
     roc_area = auc(false_positive_rate, true_positive_rate)
     return false_positive_rate, true_positive_rate, roc_area
+
 
 def get_truth_table(positive_scores, negative_scores, threshold=0):
     """
@@ -193,6 +211,7 @@ def get_truth_table(positive_scores, negative_scores, threshold=0):
     fnr = 1 - tpr
     tnr = 1 - fpr
     return tpr, fpr, fnr, tnr
+
 
 def get_predictor_metrics(positive_scores, negative_scores, threshold=0):
     """
