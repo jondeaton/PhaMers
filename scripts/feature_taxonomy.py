@@ -56,15 +56,13 @@ class plot_maker(object):
         self.cluster_on_tsne = True
         self.dbscan = False
         self.kmeans = True
-        self.k_clusters = 55
-        self.order_clusters_by_size = False
+        self.k_clusters = 60
+        self.order_clusters_by_size = True
+        self.epx = [0.014, 5][self.cluster_on_tsne]
 
-        if self.cluster_on_tsne:
-            self.eps = 5
-        else:
-            self.eps = 0.014
-
-        self.titles = ['Viruses', 'Baltimore Classification', 'Order', 'Family', 'Subfamily']
+        self.taxa_depth = 'Family'
+        self.taxa_names = ['Viruses', 'Baltimore Classification', 'Order', 'Family', 'Subfamily']
+        self.titles = self.taxa_names
         self.markers = ['v', '^', '<', '>', '8', 's', 'p', 'h', 'H', 'D', 'd']
 
         self.annotate_kinds = True
@@ -215,7 +213,7 @@ class plot_maker(object):
         the clusters given by the assignment.
         :return: None
         """
-        for lineage_depth in [1, 2, 3, 4]:
+        for lineage_depth in np.arange(1, self.taxa_names.index(self.taxa_depth)+1):
             title = self.titles[lineage_depth]
             logger.debug("Making bar charts for: %s..." % title)
             plt.figure(figsize=self.bar_figsize)
@@ -319,7 +317,7 @@ class plot_maker(object):
         :return:
         """
         lineage_name = self.titles[lineage_depth].lower().split()[0]
-        file_name = 'cluster_homology_{lineage_name}_.svg'.format(lineage_name=lineage_name)
+        file_name = 'cluster_homology_{lineage_name}.svg'.format(lineage_name=lineage_name)
         file_name = os.path.join(self.output_directory, file_name)
         return file_name
 
