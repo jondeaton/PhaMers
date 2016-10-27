@@ -50,16 +50,17 @@ class plot_maker(object):
         self.id_list = None
         self.lineage_dict = None
 
-        self.do_tsne = False
+        self.do_tsne = True
         self.perplexity = 10
-        self.min_samples = 10
-        self.cluster_on_tsne = True
-        self.dbscan = False
-        self.kmeans = True
-        self.k_clusters = 34
-        self.order_clusters_by_size = True
-        self.eps = [0.014, 1][self.cluster_on_tsne]
 
+        self.kmeans = False
+        self.dbscan = True
+        self.cluster_on_tsne = True
+        self.k_clusters = 34
+        self.min_samples = 10
+        self.eps = [0.014, 1.5][self.cluster_on_tsne]
+
+        self.order_clusters_by_size = True
         self.taxa_depth = 'Family'
         self.taxa_names = ['Viruses', 'Baltimore Classification', 'Order', 'Family', 'Subfamily']
         self.titles = self.taxa_names
@@ -267,7 +268,7 @@ class plot_maker(object):
         :param args: An argparse parsed arguments object
         :return: None
         """
-        text = basic.generate_summary(args, line_start="#", header="Cluster taxonomy file")
+        text = basic.generate_summary(args, line_start="# ", header="Cluster taxonomy file")
         for cluster in set(self.assignment):
             text += "Cluster: %d%s\n" % (cluster, ["", " (unassigned)"][cluster == -1])
             cluster_ids = np.array(self.id_list)[self.assignment == cluster]
