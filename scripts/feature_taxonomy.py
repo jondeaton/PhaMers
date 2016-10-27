@@ -1,19 +1,17 @@
 #!/usr/bin/env python
 """
+feature_taxonomy.py
+
 This script makes pie charts of the distributions of taxonomic classifications of sequence data, as well as a t-SNE plot
 based on k-mer frequencies, and bar charts of cluster composition based on k-mers and taxonomic classification
 """
 
 import os
 import logging
-import numpy as np
-import taxonomy as tax
-import distinguishable_colors as dc
-import kmer
-import fileIO
 import argparse
-import learning
 import warnings
+import numpy as np
+from sklearn.manifold import TSNE
 import matplotlib
 try:
     os.environ["DISPLAY"]
@@ -22,7 +20,13 @@ except KeyError:
 warnings.simplefilter('ignore', UserWarning)
 import matplotlib.pyplot as plt
 import pylab
-from sklearn.manifold import TSNE
+
+import kmer
+import basic
+import fileIO
+import learning
+import taxonomy as tax
+import distinguishable_colors
 
 __version__ = 1.0
 __author__ = "Jonathan Deaton (jdeaton@stanford.edu)"
@@ -37,9 +41,14 @@ class plot_maker(object):
     def __init__(self):
         self.output_directory = 'taxonomy'
 
-        self.features_file = self.get_features_filename()
+        self.fasta_file = None
+        self.lineage_file = None
+        self.features_file = None
         self.tsne_file = self.get_tsne_filename()
         self.tsne_plot_filename = self.get_tsne_plot_filename()
+
+        self.id_list = None
+        self.lineage_dict = None
 
         self.do_tsne = False
         self.perplexity = 30
@@ -47,7 +56,8 @@ class plot_maker(object):
         self.cluster_on_tsne = True
         self.dbscan = False
         self.kmeans = True
-        self.k_clusters = 40
+        self.k_clusters = 55
+        self.order_clusters_by_size = False
 
         if self.cluster_on_tsne:
             self.eps = 5
@@ -61,20 +71,17 @@ class plot_maker(object):
         self.tsne_figsize = (14, 11)
         self.bar_figsize = (12, 6)
 
-        #todo: figure out what this does when set to True
+        #TODO: figure out what this does when set to True
         self.unknown_toggle = False
-
 
     def make_all_plots(self):
         """
-        This function makes all the plots
+        This function makes all the plots which are
+        1. Pie charts describing the taxonomic distributions of the entire dataset
+        2. t-SNE plot showing clusters of taxonomic groups
+        3. Bar charts showing taxonomic distributions of clusters
         :return: None
         """
-
-        logger.info("Clustering points...")
-        self.assignment = self.get_assignment()
-
-
         logger.info("Making pie plots of all data...")
         self.make_pie_charts()
         logger.info("Making t-SNE plot...")
@@ -85,21 +92,21 @@ class plot_maker(object):
 
     def load_data_for_plotting(self):
         """
-        This function gathers all the data necessary for subsequent plotting
+        This function loads all the data necessary for plotting into memory
         :return: None
         """
         if self.output_directory and not os.path.isdir(self.output_directory):
             os.mkdir(self.output_directory)
 
-        if not self.do_tsne and os.path.isfile(self.tsne_file) and os.path.isfile(self.feature_file):
+        if not self.do_tsne and os.path.isfile(self.tsne_file) and os.path.isfile(self.features_file):
             logger.info("Loading t-SNE data from: %s ... " % os.path.basename(self.tsne_file))
             self.id_list, self.tsne_data, _ = fileIO.read_tsne_file(self.tsne_file)
             logger.info("Loaded t-SNE data.")
 
-        elif self.do_tsne:
-            if self.feature_file and os.path.exists(self.feature_file):
-                logger.info("Loading features from: %s ..." % os.path.basename(self.feature_file))
-                self.id_list, self.features = fileIO.read_feature_file(self.feature_file)
+        else:
+            if self.features_file and os.path.exists(self.features_file):
+                logger.info("Loading features from: %s ..." % os.path.basename(self.features_file))
+                self.id_list, self.features = fileIO.read_feature_file(self.features_file)
                 logger.info("Loaded features.")
 
             elif self.fasta_file and os.path.exists(self.fasta_file):
@@ -115,11 +122,6 @@ class plot_maker(object):
             self.tsne_file = self.get_tsne_filename()
             fileIO.save_tsne_data(self.tsne_file, self.tsne_data, self.id_list)
             logger.info("Saved t-SNE to: %s" % os.path.basename(self.tsne_file))
-        else:
-            logger.error("Insufficient input data. Do one of the following:")
-            logger.error("1) Supply a CSV file containing t-SNE data with the flag -tsne")
-            logger.error("2) Supply a feature file  with the -features flag and add the -do_tsne flag")
-            exit(1)
 
         logger.info("Loading lineages from: %s ..." % os.path.basename(self.lineage_file))
         self.lineages = self.get_lineages()
@@ -144,7 +146,7 @@ class plot_maker(object):
             box = ax.get_position()
             ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
 
-            self.colors = dc.get_colors(len(diversity))
+            self.colors = distinguishable_colors.get_colors(len(diversity))
             patches, texts = plt.pie(fracs, explode=np.linspace(0.0, 0.0, len(diversity)), colors=self.colors, labeldistance=1.0)
             plt.title(self.titles[lineage_depth])
             plt.legend(patches, labels=labels, fontsize=8, loc='center left', bbox_to_anchor=(0.96, 0.5), title="Legend",  fancybox=True)
@@ -160,15 +162,14 @@ class plot_maker(object):
             plt.savefig(pie_image_file)
             plt.close()
 
-    def make_tsne_plot(self, file_name=None):
+    def make_tsne_plot(self):
         """
         This function makes a t-SNE plot of phage datapoints and colors them based on clustering after t-SNE reduction.
         Also, the plot will circle clusters that are enriched fora  specific taxonomic classification, and will diplay
         the classification that it is enriched for as well as the percentae of the cluster made of
         :return: None... just makes a savage plot
         """
-        num_clusters = 1 + max(self.assignment)
-        colors = dc.get_colors(num_clusters)
+        colors = distinguishable_colors.get_colors(self.num_clusters)
         plt.figure(figsize=self.tsne_figsize)
         plt.clf()
         axes = pylab.axes()
@@ -204,8 +205,7 @@ class plot_maker(object):
 
         ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
         plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), prop={'size': 6}, title="Legend", fontsize=7, ncol=2)
-        if file_name is None:
-            self.tsne_plot_filename = self.get_tsne_plot_filename()
+        self.tsne_plot_filename = self.get_tsne_plot_filename()
         plt.savefig(self.tsne_plot_filename)
         plt.close()
 
@@ -215,21 +215,19 @@ class plot_maker(object):
         the clusters given by the assignment.
         :return: None
         """
-        num_clusters = max(self.assignment)
-        logger.debug("Number of clusters: %d" % num_clusters)
         for lineage_depth in [1, 2, 3, 4]:
             title = self.titles[lineage_depth]
-            logger.debug("Making bar charts for: %s" % title)
+            logger.debug("Making bar charts for: %s..." % title)
             plt.figure(figsize=self.bar_figsize)
             ax = plt.subplot(111)
             diversity = set([lineage[lineage_depth] for lineage in self.lineages])
             # Making colors to represent each taxa at this depth
-            colors = dc.get_colors(len(diversity))
+            colors = distinguishable_colors.get_colors(len(diversity))
             kind_colors = {list(diversity)[i]: colors[i] for i in xrange(len(diversity))}
-            y_offset = np.zeros(num_clusters)
+            y_offset = np.zeros(self.num_clusters)
             for kind in diversity:
                 fracs = []
-                for cluster in xrange(num_clusters):
+                for cluster in xrange(self.num_clusters):
                     cluster_members = np.arange(len(self.assignment))[self.assignment == cluster]
                     cluster_lineages = np.array(self.lineages)[cluster_members]
                     num_members_of_kind = [lineage[lineage_depth] for lineage in cluster_lineages].count(kind)
@@ -241,7 +239,7 @@ class plot_maker(object):
                     fracs.append(frac)
 
                 color = kind_colors[kind]
-                plt.bar(np.arange(num_clusters), fracs, bottom=y_offset, color=color, label=kind, edgecolor=color)
+                plt.bar(np.arange(self.num_clusters), fracs, bottom=y_offset, color=color, label=kind, edgecolor=color)
                 y_offset += fracs
 
             plt.xlabel('Cluster')
@@ -255,20 +253,41 @@ class plot_maker(object):
             plt.savefig(file_name)
             plt.close()
 
+    def save_cluster_information(self, args=None):
+        """
+        This function makes a text summary of the taxonomic composition of
+        each of the clusters and saves it
+        :param args: An argparse parsed arguments object
+        :return: None
+        """
+        text = basic.generate_summary(args, line_start="#", header="Cluster taxonomy file")
+        for cluster in set(self.assignment):
+            text += "Cluster: %d%s\n" % (cluster, ["", " (unassigned)"][cluster == -1])
+            cluster_ids = np.array(self.id_list)[self.assignment == cluster]
+            i = 1
+            for id in cluster_ids:
+                text += "\t%d. %s - %s\n" % (i, id, "; ".join(self.lineage_dict[id]))
+                i += 1
+
+        file_name = self.get_cluster_taxonomy_filename()
+        f = open(file_name, 'w')
+        f.write(text)
+        f.close()
+
     def get_lineages(self):
         """
         This function is for getting lineages out of the lineage file
         :return: A list of lineages
         """
-        lineage_dict = fileIO.read_lineage_file(self.lineage_file)
-        if self.id_list:
-            lineages = [lineage_dict[id] for id in self.id_list]
+        self.lineage_dict = fileIO.read_lineage_file(self.lineage_file)
+        if self.id_list is not None:
+            lineages = [self.lineage_dict[id] for id in self.id_list]
             lineages = tax.extend_lineages(lineages)
             return lineages
         else:
             logger.warning("No id list in plotter object.")
             logger.warning("Loaded lineages in order that they appear in: %s" % os.path.basename(self.lineage_file))
-            return lineage_dict.values()
+            return self.lineage_dict.values()
 
     def get_assignment(self):
         """
@@ -277,15 +296,20 @@ class plot_maker(object):
         """
         if self.dbscan:
             if self.cluster_on_tsne:
-                assignment = learning.dbscan(self.tsne_data, eps=self.eps, min_samples=self.min_samples)
+                self.assignment = learning.dbscan(self.tsne_data, eps=self.eps, min_samples=self.min_samples)
             else:
-                assignment = learning.dbscan(self.features, eps=self.eps, min_samples=self.min_samples)
+                self.assignment = learning.dbscan(self.features, eps=self.eps, min_samples=self.min_samples)
         elif self.kmeans:
             if self.cluster_on_tsne:
-                assignment = learning.kmeans(self.tsne_data, self.k_clusters)
+                self.assignment = learning.kmeans(self.tsne_data, self.k_clusters, sort_by_size=self.order_clusters_by_size)
             else:
-                assignment = learning.dbscan(self.features, self.k_clusters)
-        return assignment
+                self.assignment = learning.kmeans(self.features, self.k_clusters, sort_by_size=self.order_clusters_by_size)
+        else:
+            self.assignment = None
+
+        self.num_clusters = len(set(self.assignment) - set([-1]))
+        logger.debug("Number of clusters: %d" % self.num_clusters)
+        return self.assignment
 
     # filename getters
     def get_barchart_file_name(self, lineage_depth):
@@ -321,10 +345,13 @@ class plot_maker(object):
 
         return os.path.join(self.output_directory, "tsne_plot.svg")
 
-    def get_features_filename(self):
-
-        return os.path.join(self.output_directory, "features.csv")
-
+    def get_cluster_taxonomy_filename(self):
+        """
+        This function returns a file name for a file that contains information
+        about the taxonomy distribtions of each cluster
+        :return:
+        """
+        return os.path.join(self.output_directory, "cluster_taxonomy.txt")
 
 def decide_files(plotter, args):
     """
@@ -343,8 +370,8 @@ def decide_files(plotter, args):
         plotter.fasta_file = args.fasta_file
     if args.lineage_file:
         plotter.lineage_file = args.lineage_file
-    if args.feature_file:
-        plotter.feature_file = args.feature_file
+    if args.features_file:
+        plotter.features_file = args.features_file
     if args.tsne_file:
         plotter.tsne_file = args.tsne_file
 
@@ -357,7 +384,7 @@ if __name__ == '__main__':
     input_group = parser.add_argument_group("Inputs")
     input_group.add_argument('-fasta', '--fasta_file',  help='Fasta file')
     input_group.add_argument('-lin', '--lineage_file', help='Lineage file')
-    input_group.add_argument('-features', '--feature_file', help='CSV file of features')
+    input_group.add_argument('-features', '--features_file', help='CSV file of features')
     input_group.add_argument('-tsne', '--tsne_file', help='t-SNE file')
 
     output_group = parser.add_argument_group("Outputs")
@@ -382,12 +409,17 @@ if __name__ == '__main__':
         logging.basicConfig(format='[log][%(levelname)s] - %(message)s')
 
     plotter = plot_maker()
-    logger.debug("Storing files paths from argparse in plotter...")
+    logger.debug("Parsing arguments...")
     decide_files(plotter, args)
     plotter.do_tsne = args.do_tsne
     logger.info("Loading data for plotting...")
     plotter.load_data_for_plotting()
 
-    logger.debug("Initiating making all plots...")
-    plotter.make_all_plots()
+    logger.info("Clustering points...")
+    plotter.get_assignment()
 
+    logger.info("Saving cluster information...")
+    plotter.save_cluster_information(args=args)
+
+    logger.info("Initiating making all plots...")
+    plotter.make_all_plots()
