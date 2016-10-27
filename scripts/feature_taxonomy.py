@@ -51,14 +51,14 @@ class plot_maker(object):
         self.lineage_dict = None
 
         self.do_tsne = False
-        self.perplexity = 30
+        self.perplexity = 10
         self.min_samples = 10
-        self.cluster_on_tsne = True
-        self.dbscan = False
-        self.kmeans = True
+        self.cluster_on_tsne = False
+        self.dbscan = True
+        self.kmeans = False
         self.k_clusters = 60
         self.order_clusters_by_size = True
-        self.epx = [0.014, 5][self.cluster_on_tsne]
+        self.eps = [0.014, 1][self.cluster_on_tsne]
 
         self.taxa_depth = 'Family'
         self.taxa_names = ['Viruses', 'Baltimore Classification', 'Order', 'Family', 'Subfamily']
@@ -88,7 +88,7 @@ class plot_maker(object):
         self.make_cluster_bar_charts()
         logger.info("Completed all plots.")
 
-    def load_data_for_plotting(self):
+    def load_data(self):
         """
         This function loads all the data necessary for plotting into memory
         :return: None
@@ -96,24 +96,27 @@ class plot_maker(object):
         if self.output_directory and not os.path.isdir(self.output_directory):
             os.mkdir(self.output_directory)
 
+        if self.features_file and os.path.exists(self.features_file):
+            # Loading features
+            logger.info("Loading features from: %s ..." % os.path.basename(self.features_file))
+            self.id_list, self.features = fileIO.read_feature_file(self.features_file, normalize=True)
+            logger.info("Loaded features.")
+        elif self.fasta_file and os.path.exists(self.fasta_file):
+            # Calculating Features
+            logger.info("No feature file provided, calculating features...")
+            self.id_list, self.features = kmer.count_file(self.fasta_file, 4, normalize=True)
+            self.features_outfile = self.get_kmers_out_filename()
+            logger.info("Calculated features. Saving features to: %s" % os.path.basename(self.features_outfile))
+            fileIO.save_counts(self.features, self.id_list, self.features_outfile, args=args)
+            logger.info("Saved features.")
+
         if not self.do_tsne and os.path.isfile(self.tsne_file) and os.path.isfile(self.features_file):
+            # Loading t-SNE data
             logger.info("Loading t-SNE data from: %s ... " % os.path.basename(self.tsne_file))
             self.id_list, self.tsne_data, _ = fileIO.read_tsne_file(self.tsne_file)
             logger.info("Loaded t-SNE data.")
-
         else:
-            if self.features_file and os.path.exists(self.features_file):
-                logger.info("Loading features from: %s ..." % os.path.basename(self.features_file))
-                self.id_list, self.features = fileIO.read_feature_file(self.features_file)
-                logger.info("Loaded features.")
-
-            elif self.fasta_file and os.path.exists(self.fasta_file):
-                logger.info("No feature file provided, calculating features...")
-                self.id_list, self.features = kmer.count_file(self.fasta_file, 4, normalize=True)
-                logger.info("Calculated features. Saving features to: %s" % os.path.basename(self.features_out))
-                kmer.save_counts(self.features, self.id_list, self.features_out, args=args)
-                logger.info("Saved features.")
-
+            # Doing t-SNE
             logger.info("Performing t-SNE...")
             self.tsne_data = TSNE(perplexity=self.perplexity, verbose=True).fit_transform(self.features)
             logger.info("t-SNE complete.")
@@ -167,7 +170,7 @@ class plot_maker(object):
         the classification that it is enriched for as well as the percentae of the cluster made of
         :return: None... just makes a savage plot
         """
-        colors = distinguishable_colors.get_colors(self.num_clusters)
+        colors = distinguishable_colors.get_colors(self.num_clusters + 1)
         plt.figure(figsize=self.tsne_figsize)
         plt.clf()
         axes = pylab.axes()
@@ -294,9 +297,9 @@ class plot_maker(object):
         """
         if self.dbscan:
             if self.cluster_on_tsne:
-                self.assignment = learning.dbscan(self.tsne_data, eps=self.eps, min_samples=self.min_samples)
+                self.assignment = learning.dbscan(self.tsne_data, eps=self.eps, min_samples=self.min_samples, sort_by_size=self.order_clusters_by_size)
             else:
-                self.assignment = learning.dbscan(self.features, eps=self.eps, min_samples=self.min_samples)
+                self.assignment = learning.dbscan(self.features, eps=self.eps, min_samples=self.min_samples, sort_by_size=self.order_clusters_by_size)
         elif self.kmeans:
             if self.cluster_on_tsne:
                 self.assignment = learning.kmeans(self.tsne_data, self.k_clusters, sort_by_size=self.order_clusters_by_size)
@@ -306,10 +309,22 @@ class plot_maker(object):
             self.assignment = None
 
         self.num_clusters = len(set(self.assignment) - set([-1]))
-        logger.debug("Number of clusters: %d" % self.num_clusters)
+        if self.num_clusters > 0:
+            logger.debug("Number of clusters: %d" % self.num_clusters)
+        else:
+            logger.warning("Data was assigned to zero clusters. Exiting.")
+            exit()
         return self.assignment
 
     # filename getters
+    def get_kmers_out_filename(self):
+        """
+        This function gets a filename for saving a k-mers file that was counted in this script
+        :return: A path to a file to save kmer counts to
+        """
+        base = os.path.splittext(os.path.basename(self.fasta_file))[0]
+        return os.path.join(self.output_directory, "%s_kmer.csv" % base)
+
     def get_barchart_file_name(self, lineage_depth):
         """
         This function makes a filename for a cluster barchart
@@ -411,7 +426,7 @@ if __name__ == '__main__':
     decide_files(plotter, args)
     plotter.do_tsne = args.do_tsne
     logger.info("Loading data for plotting...")
-    plotter.load_data_for_plotting()
+    plotter.load_data()
 
     logger.info("Clustering points...")
     plotter.get_assignment()
