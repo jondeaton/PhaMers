@@ -53,10 +53,10 @@ class plot_maker(object):
         self.do_tsne = False
         self.perplexity = 10
         self.min_samples = 10
-        self.cluster_on_tsne = False
-        self.dbscan = True
-        self.kmeans = False
-        self.k_clusters = 60
+        self.cluster_on_tsne = True
+        self.dbscan = False
+        self.kmeans = True
+        self.k_clusters = 34
         self.order_clusters_by_size = True
         self.eps = [0.014, 1][self.cluster_on_tsne]
 
@@ -244,12 +244,18 @@ class plot_maker(object):
                 y_offset += fracs
 
             plt.xlabel('Cluster')
-            plt.title(title)
             box = ax.get_position()
             ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
             prop = {'size': 6}
             ncol = [1, 2][len(diversity) > 50]
             plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), prop=prop, ncol=ncol, title=title)
+            title_text = ""
+            if self.dbscan:
+                title_text = "DBSCAN clustering. eps: %.4f, min_samples: %d" % (self.eps, self.min_samples)
+            elif self.kmeans:
+                title_text = "KMEANS clustering. k=%d" % self.k_clusters
+            title_text += ["", " on t-SNE"][self.cluster_on_tsne]
+            plt.title(title_text)
             file_name = self.get_barchart_file_name(lineage_depth)
             plt.savefig(file_name)
             plt.close()
