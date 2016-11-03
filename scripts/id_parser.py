@@ -38,11 +38,10 @@ def get_contig_name(header):
     '''
     header = header.strip().replace('>', '')
     parts = header.split('_')
-    try:
-        return parts[1 + parts.index('SuperContig')]
-    except:
-        logger.warning("Couldn't find name from: %s" % header)
-
+    if len(parts) > 1:
+        return parts[1]
+    else:
+        return header
 
 def get_contig_length(header):
     '''
