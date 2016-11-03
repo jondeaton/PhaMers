@@ -20,9 +20,16 @@ DNA = 'ATGC'
 
 def get_transformed_indicies(k, num_symbols, reposition_indicies=None, index_substitution_map=None):
     """
-    This function transforms things...
-    :param k:
-    :return:
+    This function makes a list of indicies that
+    :param k: The length of the k-mers (k)
+    :param num_symbols: The number of symbols available
+    :param reposition_indicies: A numpy array of indicies where the positions of each symbol should be mapped to
+    when they are read in. For instance, to get the transformed indicies for couting k-mers in reverse, this parameter
+    should be an array of integer indicies couting down in reverse (i.e. [3, 2, 1, 0] for k=4)
+    :param index_substitution_map: This is a dictionary that maps the index of each symbol in the sylbols that were used
+    to count the k-mers, to a differenc index. For example, to count k-mers in the complement of a DNA sequence
+    where the symbol are 'ATGC', this parameter should be {0: 1, 1: 0, 2: 3, 3: 2}.
+    :return: A list of indicies that corespond to where each k-mer index shoudl be re-mapped to
     """
     b = num_symbols
     # This line takes an index j like (from 'CTG' -> 30) and writes it as [3, 2, 1]
@@ -60,23 +67,26 @@ def get_DNA_complement_indicies(k):
 
 def transform_kmers(counts, reverse=True, complement=False, symbols=DNA):
     """
-
-    :param counts:
-    :param reverse:
-    :param complement:
-    :param symbols:
-    :return:
+    This function will transform a set of DNA k-mer counts into a set of counts that would have been generated
+     if reverse, complementary, or reverse complementary k-mers had been counted instead
+    :param counts: A numpy array of k-mer count vectors
+    :param reverse: Specify if you want the reverse counts instead
+    :param complement: Specify if you want the complementary counts instead
+    :param symbols: The symbols that were used to generate the k-mer count vectors
+    :return: A numpy array of k-mer count vectors as though they were counted differencly
     """
     num_symbols = len(symbols)
     k = int(round(np.math.log(counts.shape[1], num_symbols)))
     counts = counts.transpose()
     if reverse and not complement:
-        counts += counts[get_reverse_indicies(k)]
-    if complement and not reverse:
-        counts += counts[get_DNA_complement_indicies(k)]
-    if reverse and complement:
-        counts += counts[get_reverse_complement_indicies(k)]
-    return counts.transpose()
+        return counts[get_reverse_indicies(k)].transpose()
+    elif complement and not reverse:
+        return counts[get_DNA_complement_indicies(k)].transpose()
+    elif reverse and complement:
+        return counts[get_reverse_complement_indicies(k)].transpose()
+    else:
+        return counts.transpose()
+
 
 
 if __name__ == '__main__':
