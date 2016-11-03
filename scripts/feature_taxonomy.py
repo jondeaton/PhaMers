@@ -380,7 +380,6 @@ def decide_files(plotter, args):
     :param args: An argparse parsed arguments object from this script
     :return: None
     """
-
     if args.output_directory:
         plotter.output_directory = args.output_directory
         plotter.tsne_plot_filename = plotter.get_tsne_plot_filename()
