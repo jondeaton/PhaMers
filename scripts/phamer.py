@@ -114,15 +114,18 @@ class phamer_scorer(object):
 
         scorer.find_input_files()
         # Loading input data
-        if os.path.exists(self.features_file):
+        if self.features_file is not None and os.path.exists(self.features_file):
             logger.info("Reading features from file: %s ..." % os.path.basename(self.features_file))
             scorer.data_ids, scorer.data_points = fileIO.read_feature_file(self.features_file)
-        elif os.path.exists(self.fasta_file):
-            logger.info("Calculating features of: %s" % os.path.basename(self.fasta))
-            self.data_ids, self.data_points = kmer.count_file(self.fasta, self.kmer_length, normalize=False)
+        elif self.fasta_file is not None and os.path.exists(self.fasta_file):
+            logger.info("Calculating features of: %s" % os.path.basename(self.fasta_file))
+            self.data_ids, self.data_points = kmer.count_file(self.fasta_file, self.kmer_length, normalize=False)
             self.features_file = "{base}_features.csv".format(base=os.path.splitext(self.fasta_file)[0])
             logger.info("Saving features to {file}...".format(file=self.features_file))
             fileIO.save_counts(self.data_points, self.data_ids, self.features_file)
+        else:
+            logger.error("No input fasta file or features file. Exiting...")
+            exit()
 
         self.data_points = kmer.normalize_counts(self.data_points)
 
@@ -410,6 +413,13 @@ class phamer_scorer(object):
             fasta_files = [file for file in os.listdir(self.input_directory) if file.endswith('.fasta') or file.endswith('.fa')]
             if len(fasta_files) == 1:
                 self.fasta_file = os.path.join(self.input_directory, fasta_files[0])
+            else:
+                for potential_file in fasta_files:
+                    if not os.path.splitext(potential_file)[0].endswith("genes"):
+                        self.fasta_file = os.path.join(self.input_directory, potential_file)
+                        break
+                if self.fasta_file is None:
+                    self.fasta_file = os.path.join(self.input_directory, fasta_files[0])
 
             features_files = [file for file in os.listdir(self.input_directory) if file.endswith('.csv')]
             if len(features_files) == 1:
@@ -474,7 +484,7 @@ def decide_files(scorer, args):
         # No explicit directory, try to make put it with the inputs
         if not scorer.input_directory and args.input_directory:
             scorer.input_drectory = args.input_directory
-        elif not scorer.fasta_file and args.input_fasta:
+        elif not scorer.fasta_file and args.fasta_file:
             scorer.input_drectory = os.path.dirname(args.fasta_file)
         elif not scorer.features_file and args.features_file:
             scorer.input_drectory = os.path.dirname(args.features_file)
