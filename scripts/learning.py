@@ -206,8 +206,14 @@ def get_truth_table(positive_scores, negative_scores, threshold=0):
     fp = np.sum(negative_scores >= threshold)
     fn = np.sum(positive_scores < threshold)
     tn = np.sum(negative_scores < threshold)
-    tpr = float(tp) / (tp + fn)
-    fpr = float(fp) / (fp + tn)
+    if tp + fn != 0:
+        tpr = float(tp) / (tp + fn)
+    else:
+        tpr = 0
+    if fp + tn != 0:
+        fpr = float(fp) / (fp + tn)
+    else:
+        fpr = 0
     fnr = 1 - tpr
     tnr = 1 - fpr
     return tpr, fpr, fnr, tnr
