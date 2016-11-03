@@ -92,7 +92,7 @@ class results_analyzer(object):
         self.data_directory = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
         self.lineage_file = None
         self.virsorter_summary = None
-        self.IMG_directory = None
+        self.img_directory = None
         self.img_summary = None
         self.phamer_summary = None
         self.phage_features_file = None
@@ -456,6 +456,9 @@ class results_analyzer(object):
         compiled data of contig id, phylogenies, and products into a tab-separated summary file
         :return: None
         """
+        if self.img_directory is None or not os.path.isdir(self.img_directory):
+            logger.warning("No IMG directory, cannot parse IMG files.")
+            return
         self.img_summary = self.get_img_summary_filename()
         f = open(self.img_summary, 'w')
         header = img.gene_csv_header(self.img_directory)
@@ -483,7 +486,12 @@ class results_analyzer(object):
         :return: None
         """
         logger.debug("Loading ids...")
-        self.id_header_map = get_id_header_map(self.fasta_file)
+        if self.fasta_file is not None:
+            self.id_header_map = get_id_header_map(self.fasta_file)
+        else:
+            logger.warning("No fasta file...")
+            self.id_header_map = None
+
         logger.debug("Loading features...")
         self.contig_ids, self.contig_features = fileIO.read_feature_file(self.features_file, normalize=True)
         logger.debug("Loading VirSorter results...")
@@ -506,7 +514,10 @@ class results_analyzer(object):
         logger.debug("Loading contig names and ids...")
         self.contig_name_id_nap = get_name_id_map(contigs_file=self.fasta_file)
         logger.debug("Loading IMG data...")
-        self.img_proucts_map = img.get_contig_map(self.img_directory, self.contig_name_id_nap)
+        if self.img_directory is not None and os.path.isdir(self.img_directory):
+            self.img_proucts_map = img.get_contig_map(self.img_directory, self.contig_name_id_nap)
+        else:
+            logger.info("No IMG directory found.")
         logger.info("Loaded all data.")
 
     def get_lineages(self):
@@ -583,6 +594,13 @@ class results_analyzer(object):
             fasta_files = basic.search_for_file(self.input_directory, end=".fasta")
             if len(fasta_files) == 1:
                 self.fasta_file = fasta_files[0]
+            else:
+                for potential_file in fasta_files:
+                    if not os.path.splitext(potential_file)[0].endswith("genes"):
+                        self.fasta_file = os.path.join(self.input_directory, potential_file)
+                        break
+                if self.fasta_file is None:
+                    self.fasta_file = os.path.join(self.input_directory, fasta_files[0])
 
             phamer_directory = os.path.join(self.input_directory, "phamer_output")
             phamer_files = basic.search_for_file(phamer_directory, contain='scores', end='.csv')
@@ -707,7 +725,12 @@ class results_analyzer(object):
         This function makes a path for an img summary output file
         :return: A absolute path to the summary outptu files
         """
-        return os.path.join(self.output_directory, '%s.summary' % os.path.basename(os.path.relpath(self.img_directory)))
+        if self.output_directory is not None and self.img_directory is not None:
+            return os.path.join(self.output_directory, '%s.summary' % os.path.basename(os.path.relpath(self.img_directory)))
+        elif self.output_directory is not None:
+            return os.path.join(self.output_directory, "IMG.sumary")
+        else:
+            return "IMG.summary"
 
     def get_roc_filename(self):
         """
