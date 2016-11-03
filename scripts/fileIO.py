@@ -107,7 +107,7 @@ def read_headers_file(header_file):
     return [line.strip() for line in open(header_file, 'r').readlines() if not line.startswith('#')]
 
 
-def read_feature_file(feature_file, normalize=False, id=None, old=False, transform=True):
+def read_feature_file(feature_file, normalize=False, id=None, old=False, transform=False):
     """
     A function for reading a k-mer file
     :param kmer_file: The file name of the k-mer file, the file should be in a csv format
@@ -125,7 +125,7 @@ def read_feature_file(feature_file, normalize=False, id=None, old=False, transfo
         features = data[:, 1:].astype(int)
 
     if transform:
-        features = transform_kmers.transform_kmers(features, reverse=True, complement=True)
+        features += transform_kmers.transform_kmers(features, reverse=True, complement=True)
 
     if normalize:
         features = kmer.normalize_counts(features)
