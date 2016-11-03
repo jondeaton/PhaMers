@@ -121,6 +121,9 @@ def read_feature_file(feature_file, normalize=False, id=None, old=False, transfo
         ids = ['No_ID'] * features.shape[0]
     else:
         data = np.loadtxt(feature_file, delimiter=',', dtype=str)
+        # Make into a 2D array if its a 1D array
+        if len(data.shape) == 1:
+            data = np.array([data])
         ids = list(data[:, 0].transpose())
         features = data[:, 1:].astype(int)
 
