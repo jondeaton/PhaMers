@@ -53,8 +53,8 @@ class plot_maker(object):
         self.do_tsne = True
         self.perplexity = 10
 
-        self.kmeans = False
-        self.dbscan = True
+        self.kmeans = True
+        self.dbscan = False
         self.cluster_on_tsne = True
         self.k_clusters = 34
         self.min_samples = 10
