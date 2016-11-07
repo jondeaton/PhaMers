@@ -115,7 +115,7 @@ class phamer_scorer(object):
         scorer.find_input_files()
         # Loading input data
         if self.features_file is not None and os.path.exists(self.features_file):
-            logger.info("Reading features from file: %s ..." % os.path.basename(self.features_file))
+            logger.info("Reading features from: %s..." % os.path.basename(self.features_file))
             scorer.data_ids, scorer.data_points = fileIO.read_feature_file(self.features_file)
         elif self.fasta_file is not None and os.path.exists(self.fasta_file):
             logger.info("Calculating features of: %s" % os.path.basename(self.fasta_file))
@@ -130,7 +130,6 @@ class phamer_scorer(object):
         self.data_points = kmer.normalize_counts(self.data_points)
 
         if args.length_requirement:
-            logger.info("Screening input by length: %d bp..." % args.length_requirement)
             scorer.screen_by_length()
 
     def screen_by_length(self, length_requirement=None):
@@ -142,11 +141,11 @@ class phamer_scorer(object):
         if length_requirement:
             self.length_requirement = length_requirement
         unknown_ids, unknown_sequences = fileIO.read_fasta(self.fasta_file)
-        logger.debug("%d points before screening" % self.data_points.shape[0])
+        num_before = self.data_points.shape[0]
         long_ids = [unknown_ids[i] for i in xrange(len(unknown_ids)) if len(unknown_sequences[i]) >= self.length_requirement]
         self.data_points = self.data_points[np.in1d(self.data_ids, long_ids)]
         self.data_ids = np.array(long_ids)
-        logger.debug("%d points after screening" % self.data_points.shape[0])
+        logger.debug("%d of %d contigs > %.2f kbp" % (self.data_points.shape[0], num_before, args.length_requirement/1e3))
 
     def equalize_reference_data(self):
         """
@@ -180,7 +179,7 @@ class phamer_scorer(object):
         scoring_function = self.method_function_map[self.scoring_method]
 
         # actually scoring points
-        logger.debug("Scoring %d points. Method: %s ..." % (self.data_points.shape[0], self.scoring_method))
+        logger.debug("Scoring %d points. Method: %s..." % (self.data_points.shape[0], self.scoring_method))
         self.scores = np.array(scoring_function())
         return self.scores
 
