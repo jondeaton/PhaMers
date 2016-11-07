@@ -217,6 +217,10 @@ class results_analyzer(object):
             negative_scores = [self.phamer_dict[id] for id in fp + tn]
             fpr, tpr, roc_auc = learning.predictor_performance(positive_scores, negative_scores)
             ax.plot(fpr, tpr, colors[i], label='%s (AUC: %0.3f)' % (labels[i], roc_auc))
+        tp, fp, fn, tn = self.truth_table
+        tpr = len(tp) / float(len(tp) + len(fn))
+        fpr = len(fp) / float(len(fp) + len(tn))
+        ax.plot(fpr, tpr, 'or')
         ax.plot([0, 1], [0, 1], 'k--')
         ax.set_xlim([0.0, 1.0])
         ax.set_ylim([0.0, 1.0])
@@ -409,6 +413,8 @@ class results_analyzer(object):
             fig.savefig(file_name)
             plt.close(fig)
 
+            self.have_been_diagramed += [id]
+
     def get_contig_description_text(self, id, cluster_lineages=None, lineage_depth=6):
         """
         This function makes a text description for a given contig id
@@ -416,7 +422,7 @@ class results_analyzer(object):
         :param cluster_lineages: A list of lineages
         :return: A string that contains all information about the contig
         """
-        text = self.id_header_map[id]
+        text = self.id_header_map[id].strip()
         if self.dataset_name:
             text += "\nDataset: %s" % self.dataset_name
 
@@ -495,7 +501,7 @@ class results_analyzer(object):
 
         summary = basic.generate_summary(args, header="Summary of Phamer results")
         total_count = np.sum(category_counts[[1, 2, 4, 5]]) + np.sum(phamer_category_counts[[3, 6]])
-        summary += "\nTotal/Final count: %d\n" % total_count
+        summary += "\nTotal/Final count: %s\n" % total_count
 
         for category in xrange(1, 7):
             summary += "VirSorter Category %s: " % category
@@ -669,10 +675,10 @@ class results_analyzer(object):
                 category_map[id] = category
         return category_map
 
-    def get_virsorter_phamer_truth_table(self, categories=None):
+    def get_virsorter_phamer_truth_table(self, categories=None, strict=True):
         """
         This function finds the true positives, false positives, false negatives, and true positives for phage
-        predictions from Phamer and from VirSorter
+        predictions from PhaMers and from VirSorter
         :param categories: Give a list of VirSorter categories for which phage should only be counted as putative
         predictions if they fit these categories
         :return: A tuple of lists of IDs for true positives, false positives, false negatives, and true positives in that order
@@ -683,6 +689,13 @@ class results_analyzer(object):
         for phage in vs_phage:
             if phage.id in self.phamer_dict.keys():
                 phage.phamer_score = self.phamer_dict[phage.id]
+
+        if categories is None:
+            if strict:
+                categories = [1, 2, 4, 5]
+            else:
+                categories = [1, 2, 3, 4, 5, 6]
+
         vs_ids = [phage.id for phage in vs_phage if categories is None or phage.category in categories]
 
         true_positives = [id for id in self.phamer_dict.keys() if id in vs_ids and id in phamer_ids]
