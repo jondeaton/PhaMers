@@ -580,4 +580,4 @@ if __name__ == '__main__':
         scorer.make_tsne_plot()
         logger.info("Done creating t-SNE plot.")
 
-    logger.info("Phamer complete.")
+    logger.info("Complete.")
