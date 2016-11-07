@@ -116,7 +116,8 @@ class results_analyzer(object):
         self.min_samples = 5
 
         # Plotting options
-        self.ids_to_diagram = None
+        self.ids_to_diagram = []
+        self.have_been_diagramed = []
         self.pie_plot_figsize = (18, 8)
         self.tsne_figsize = (10, 8)
         self.label_contigs_on_tsne = False
@@ -152,7 +153,7 @@ class results_analyzer(object):
         except:
             logger.error("Could not make boxplot.")
 
-        self.make_contig_diagrams()
+        self.diagram_contigs()
         self.make_contig_plots()
 
     def plot_tsne(self, ax=None):
@@ -298,7 +299,7 @@ class results_analyzer(object):
         plt.title("Cluster Taxonomy", fontsize=7)
         plt.show()
 
-    def make_contig_diagrams(self):
+    def diagram_contigs(self):
         """
         This function creates many DNA feature diagrams from all the files within the "genbank" directory.
         :return: None
@@ -328,7 +329,7 @@ class results_analyzer(object):
             for record_key in record_dict:
                 record = record_dict[record_key]
                 id = id_parser.get_id(record.id)
-                if self.ids_to_diagram and id not in self.ids_to_diagram:
+                if self.ids_to_diagram is not None and id not in self.ids_to_diagram:
                     logger.info("Skipping: %s." % id)
                     continue
                 logger.info("Diagraming: %s..." % id)
@@ -368,6 +369,8 @@ class results_analyzer(object):
                 fig.savefig(file_name)
                 plt.close(fig)
 
+                self.have_been_diagramed += [id]
+
     def make_contig_plots(self):
         """
         This function makes plots of contigs witout the diagrams
@@ -377,27 +380,34 @@ class results_analyzer(object):
         if output_dir and not os.path.exists(output_dir):
             os.mkdir(output_dir)
 
-        for id in self.ids_to_diagram:
+        for id in set(self.ids_to_diagram) - set(self.have_been_diagramed):
+            logger.info("Plotting: %s..." % id)
             contig_features = self.contig_features[self.contig_ids == id]
             appended_data = np.vstack((self.phage_features, contig_features))
             assignments = learning.kmeans(appended_data, self.k_clusters, verbose=False)
             cluster = assignments[-1]
             cluster_phage = np.arange(self.num_reference_phage)[assignments[:-1] == cluster]
             cluster_lineages = np.array([self.lineages[i] for i in cluster_phage])
+            cluster_silhouettes = learning.cluster_silhouettes(appended_data, assignments, assignments[-1])
 
             fig = plt.figure(figsize=(12, 6))
-            gs = gridspec.GridSpec(0, 4)
+            gs = gridspec.GridSpec(1, 4)
 
             # SILHOUETTE
             ax = fig.add_subplot(gs[0, 0])
-            self.plot_cluster_silhouettes(ax, id, cluster_phage)
+            self.plot_cluster_silhouettes(cluster_silhouettes, ax=ax)
 
             # TAXONOMY BAR CHART
-            ax = fig.add_subplot(gs[0, 1])
-            self.plot_cluster_composition(ax, id, cluster_phage)
+            ax = fig.add_subplot(gs[0, 2])
+            self.plot_cluster_composition(cluster_lineages, ax=ax)
 
             # TEXT
             plt.text(5.5, 0, self.get_contig_description_text(id, cluster_lineages=cluster_lineages), fontsize=9)
+
+            # SAVE
+            file_name = self.get_diagram_filename(id)
+            fig.savefig(file_name)
+            plt.close(fig)
 
     def get_contig_description_text(self, id, cluster_lineages=None, lineage_depth=6):
         """
