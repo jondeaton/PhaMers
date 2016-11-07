@@ -2,7 +2,7 @@
 """
 analysis.py
 
-This script is for doing analysis of Phamer results and integrating results with VirSroter and IMG outputs
+This script is for doing analysis of PhaMers results and integrating results with VirSroter and IMG outputs
 """
 
 import os
@@ -15,11 +15,11 @@ from Bio import SeqIO
 from Bio import BiopythonWarning
 warnings.simplefilter('ignore', BiopythonWarning)
 import matplotlib
-matplotlib.use('Agg')
+matplotlib.use('agg')
 try:
-    os.environ["DISPLAY"]
+    os.environ['DISPLAY']
 except KeyError:
-    matplotlib.use('Agg')
+    matplotlib.use('agg')
 warnings.simplefilter('ignore', UserWarning)
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -34,7 +34,6 @@ import img_parser as img
 import distinguishable_colors
 import learning
 import basic
-
 
 pd.options.mode.chained_assignment = None
 
@@ -217,8 +216,14 @@ class results_analyzer(object):
             negative_scores = [self.phamer_dict[id] for id in fp + tn]
             fpr, tpr, roc_auc = learning.predictor_performance(positive_scores, negative_scores)
             ax.plot(fpr, tpr, colors[i], label='%s (AUC: %0.3f)' % (labels[i], roc_auc))
-            tpr = len(tp) / float(len(tp) + len(fn))
-            fpr = len(fp) / float(len(fp) + len(tn))
+            if len(tp) > 0 and len(fn) > 0:
+                tpr = len(tp) / float(len(tp) + len(fn))
+            else:
+                tpr = 0
+            if len(fp) > 0 and len(tn) > 0:
+                fpr = len(fp) / float(len(fp) + len(tn))
+            else:
+                fpr = 0
             ax.plot(fpr, tpr, 'o%s' % colors[i])
 
         ax.plot([0, 1], [0, 1], 'k--')
@@ -270,7 +275,7 @@ class results_analyzer(object):
             cluster_silhouettes = cluster_silhouettes[:-1]
             ax.barh(0, point_sil, color='red', alpha=0.9)
             ax.barh(range(1, len(cluster_silhouettes) + 1), sorted(cluster_silhouettes), color='blue', alpha=0.3)
-            ax.set_xlim([0, 1])
+            ax.set_xlim([-1, 1])
             ax.set_ylim([0, cluster_size])
             ax.set_xlabel("Silhouette", fontsize=9)
             ax.tick_params(axis='both', which='major', labelsize=9)
@@ -394,8 +399,8 @@ class results_analyzer(object):
             cluster_lineages = np.array([self.lineages[i] for i in cluster_phage])
             cluster_silhouettes = learning.cluster_silhouettes(appended_data, assignments, assignments[-1])
 
-            fig = plt.figure(figsize=(12, 6))
-            gs = gridspec.GridSpec(1, 4)
+            fig = plt.figure(figsize=(12, 4))
+            gs = gridspec.GridSpec(1, 5)
 
             # SILHOUETTE
             ax = fig.add_subplot(gs[0, 0])
