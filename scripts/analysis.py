@@ -78,7 +78,6 @@ class phage():
             top += "%s\n" % gene.__str__()
         return top
 
-
 class results_analyzer(object):
     """
     This class integrates data from IMG, VirSorter and Phamer to produce summary files and plots
@@ -109,7 +108,7 @@ class results_analyzer(object):
         self.lineage_dict = None
 
         self.summary_fields = ['Header', 'Contig_Name', 'Contig_ID', 'Length', 'VirSorter_Category', 'Phamer_Score', 'IMG_Products_and_Phylogenies']
-        self.phylogeny_names = ['Viruses', 'Baltimore Classification', 'Order', 'Family', 'Sub-Family', 'Genus']
+        self.phylogeny_names = ['Viruses', 'Baltimore', 'Order', 'Family', 'Sub-Family', 'Genus']
 
         self.cluster_algorithm = 'kmeans'
         self.k_clusters = 86
@@ -117,6 +116,7 @@ class results_analyzer(object):
         self.min_samples = 5
 
         # Plotting options
+        self.ids_to_diagram = None
         self.pie_plot_figsize = (18, 8)
         self.tsne_figsize = (10, 8)
         self.label_contigs_on_tsne = False
@@ -128,10 +128,37 @@ class results_analyzer(object):
         self.tn_color = 'green'
 
     # Plotting Methods
-    def make_tsne_plot(self):
+    def make_all_plots(self):
+        """
+        This function makes all plots and saves them
+        :return: None
+        """
+
+        fig, ax = plt.subplots(1, figsize=self.tsne_figsize)
+        self.plot_tsne(ax=ax)
+        fig.savefig(self.get_tsne_figname())
+        plt.close(fig)
+
+        fig, ax = plt.subplots(1)
+        self.plot_roc(ax=ax)
+        fig.savefig(self.get_roc_filename())
+        plt.close(fig)
+
+        try:
+            fig, ax = plt.subplots(1)
+            self.plot_boxplot(ax=ax)
+            fig.savefig(self.get_boxplot_filename())
+            plt.close(fig)
+        except:
+            logger.error("Could not make boxplot.")
+
+        self.make_contig_diagrams()
+        self.make_contig_plots()
+
+    def plot_tsne(self, ax=None):
         """
         This makes a plot that compares results from Phamer and VirSorter by displaying a t-SNE plot
-        :return: None... just makes a cool plot
+        :return: None... just makes a savage plot
         """
         if not self.tsne_file:
             logger.error("No t-SNE file found. Did not make scatter plot.")
@@ -149,40 +176,37 @@ class results_analyzer(object):
         TN_points = np.array([plot_dict[id] for id in true_negatives])
 
         alpha = 0.9
-
-        plt.figure(figsize=self.tsne_figsize)
-        ax = plt.subplot(111)
+        if ax is None:
+            fig, ax = plt.subplots(1, figsize=self.tsne_figsize)
         box = ax.get_position()
         ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-
-        plt.scatter(bacteria_tsne[:, 0], bacteria_tsne[:, 1], s=5, c=self.bacteria_color, edgecolor=self.bacteria_color, alpha=alpha, label='Bacteria (%s)' % bacteria_tsne.shape[0])
-        plt.scatter(phage_tsne[:, 0], phage_tsne[:, 1], s=0.5, c=self.phage_color, edgecolor=self.phage_color, alpha=alpha, label='Phage (%d)' % self.num_reference_phage)
-        plt.scatter(TN_points[:, 0], TN_points[:, 1], s=3, c=self.tn_color, edgecolor=self.tn_color, alpha=alpha,label='True Negatives (%d)' % len(TN_points))
-        plt.scatter(FP_points[:, 0], FP_points[:, 1], s=3, c=self.fp_color, edgecolor=self.fp_color, alpha=alpha,label='False Positives (%d)' % len(FP_points))
-        plt.scatter(FN_points[:, 0], FN_points[:, 1], s=15, c=self.fn_color, edgecolor='black', alpha=alpha, label='False Negatives (%d)' % len(FN_points))
-        plt.scatter(TP_points[:, 0], TP_points[:, 1], s=15, c=self.tp_color, edgecolor='black', alpha=alpha, label='True Positives (%d)' % len(TP_points))
+        ax.scatter(bacteria_tsne[:, 0], bacteria_tsne[:, 1], s=5, c=self.bacteria_color, edgecolor=self.bacteria_color, alpha=alpha, label='Bacteria (%s)' % bacteria_tsne.shape[0])
+        ax.scatter(phage_tsne[:, 0], phage_tsne[:, 1], s=0.5, c=self.phage_color, edgecolor=self.phage_color, alpha=alpha, label='Phage (%d)' % self.num_reference_phage)
+        ax.scatter(TN_points[:, 0], TN_points[:, 1], s=3, c=self.tn_color, edgecolor=self.tn_color, alpha=alpha,label='True Negatives (%d)' % len(TN_points))
+        ax.scatter(FP_points[:, 0], FP_points[:, 1], s=3, c=self.fp_color, edgecolor=self.fp_color, alpha=alpha,label='False Positives (%d)' % len(FP_points))
+        ax.scatter(FN_points[:, 0], FN_points[:, 1], s=15, c=self.fn_color, edgecolor='black', alpha=alpha, label='False Negatives (%d)' % len(FN_points))
+        ax.scatter(TP_points[:, 0], TP_points[:, 1], s=15, c=self.tp_color, edgecolor='black', alpha=alpha, label='True Positives (%d)' % len(TP_points))
 
         for id in contig_tsne_ids:
             score = self.phamer_dict[id]
             if id in true_positives or id in false_negatives or score > 1:
                 x, y = tsne_data[ids.index(id)]
                 if self.label_contigs_on_tsne:
-                    plt.text(x, y, str(id), fontsize=5)
+                    ax.text(x, y, str(id), fontsize=5)
 
-        plt.legend(fontsize=8, loc='center left', bbox_to_anchor=(0.96, 0.5), title="Legend", fancybox=True)
-        plt.grid(True)
-        plt.title('t-SNE comparison of Phamer with VirSorter')
+        ax.legend(fontsize=8, loc='center left', bbox_to_anchor=(0.96, 0.5), title="Legend", fancybox=True)
+        ax.grid(True)
+        ax.set_title('t-SNE comparison of Phamer with VirSorter')
+        return ax
 
-        file_name = self.get_tsne_figname()
-        plt.savefig(file_name)
-
-    def make_performance_plots(self):
+    def plot_roc(self, ax=None):
         """
-        This function makes an ROC curve to compare the performance between Phamer and VirSorter
-        :return: None
+        This function plots an ROC curve that compares the performacne of PhaMers against VirSorter
+        :param ax: A set of axes to plot the ROC curve on
+        :return: The axes
         """
-        # Roc Curve
-        plt.figure()
+        if ax is None:
+            fig, ax = plt.subplots(1)
         which_categories = [None, [1, 2, 4, 5]]
         colors = ['b', 'r']
         labels = ['All', 'Confident']
@@ -191,47 +215,98 @@ class results_analyzer(object):
             positive_scores = [self.phamer_dict[id] for id in tp + fn]
             negative_scores = [self.phamer_dict[id] for id in fp + tn]
             fpr, tpr, roc_auc = learning.predictor_performance(positive_scores, negative_scores)
-            plt.plot(fpr, tpr, colors[i], label='%s (AUC: %0.3f)' % (labels[i], roc_auc))
-        plt.plot([0, 1], [0, 1], 'k--')
-        plt.xlim([0.0, 1.0])
-        plt.ylim([0.0, 1.0])
-        plt.xlabel('False Positive Rate')
-        plt.ylabel('True Positive Rate')
-        plt.legend(loc="lower right")
-        plt.grid(True)
-        plt.minorticks_on()
-        plt.grid(b=True, which='minor')
-        file_name = self.get_roc_filename()
-        plt.savefig(file_name)
+            ax.plot(fpr, tpr, colors[i], label='%s (AUC: %0.3f)' % (labels[i], roc_auc))
+        ax.plot([0, 1], [0, 1], 'k--')
+        ax.set_xlim([0.0, 1.0])
+        ax.set_ylim([0.0, 1.0])
+        ax.set_xlabel('False Positive Rate')
+        ax.set_ylabel('True Positive Rate')
+        ax.legend(loc="lower right")
+        ax.grid(True)
+        ax.minorticks_on()
+        ax.grid(b=True, which='minor')
+        return ax
 
-        # Box Plot
-        plt.figure()
+    def plot_boxplot(self, ax=None):
+        """
+        This method makes a box-whisker plot that shows the distributions of PhaMers scores as a function
+        of the confidence with which VirSorter classified the contig as viral
+        :param ax: A matplotlib axes to put the plot on
+        :return: The axes on which the boxplot was plotted
+        """
+        if ax is None:
+            fig, ax = plt.subplots(1)
         data = [[], [], [], []]
-
         for id in self.phamer_dict.keys():
             try:
                 category = self.contig_category_map[id]
             except KeyError:
                 category = 0
-
             score = self.phamer_dict[id]
             x = 4 - [4, category - (category > 3) * 3][bool(category)]
             data[x].append(score)
 
-        try:
-            plt.boxplot(data)
-            plt.xlabel('Confidence')
-            plt.ylabel('Phamer Score')
-            file_name = self.get_boxplot_filename()
-            plt.savefig(file_name)
-        except:
-            logger.error("Could not make boxplot for the run.")
+        ax.boxplot(data)
+        ax.set_xlabel('Confidence')
+        ax.set_ylabel('Phamer Score')
+        return ax
+
+    def plot_cluster_silhouettes(self, cluster_silhouettes, ax=None):
+        """
+        This function makes a horizontal bar chart of the cluster silhouettes
+        :param ax: A matplotlib axes to plot onto
+        :return: The matplotlib axes that the plot was put onto
+        """
+        if ax is None:
+            fig, ax = plt.subplots(1)
+        cluster_size = len(cluster_silhouettes)
+        if cluster_size > 0:
+            point_sil = cluster_silhouettes[-1]
+            cluster_silhouettes = cluster_silhouettes[:-1]
+            ax.barh(0, point_sil, color='red', alpha=0.9)
+            ax.barh(range(1, len(cluster_silhouettes) + 1), sorted(cluster_silhouettes), color='blue', alpha=0.3)
+            ax.set_xlim([0, 1])
+            ax.set_ylim([0, cluster_size])
+            ax.set_xlabel("Silhouette", fontsize=9)
+            ax.tick_params(axis='both', which='major', labelsize=9)
+            ax.set_title("Cluster Silhouettes", fontsize=10)
+        return ax
+
+    def plot_cluster_composition(self, cluster_lineages, ax=None):
+        """
+        This makes a plot of cluster composition
+        :param ax: An axes to put the plot onto
+        :return: The axes that the bar char was plotted onto
+        """
+        cluster_size = len(cluster_lineages)
+        lineage_depth = cluster_lineages.shape[1]
+        all_kinds = set(cluster_lineages.ravel())
+        color_dict = distinguishable_colors.get_color_dict(all_kinds)
+        y_offset = np.zeros(lineage_depth)
+        x = np.arange(lineage_depth)
+        for kind in all_kinds:
+            color = color_dict[kind]
+            y = np.array([list(cluster_lineages[:, depth]).count(kind) for depth in xrange(lineage_depth)])
+            ax.bar(np.arange(cluster_lineages.shape[1]), y, bottom=y_offset, color=color, label=kind, edgecolor=color)
+            y_offset += y
+
+        ax.legend(fontsize=5, bbox_to_anchor=(-0.1, 1), ncol=1 + int(len(all_kinds) > 20))
+        ax.set_xlim([0, 5])
+        ax.set_ylim([0, cluster_size])
+        plt.xticks(0.25 + np.arange(5), self.phylogeny_names, rotation=45)
+        plt.tick_params(axis='both', which='major', labelsize=9)
+        plt.title("Cluster Taxonomy", fontsize=7)
+        plt.show()
 
     def make_contig_diagrams(self):
         """
         This function creates many DNA feature diagrams from all the files within the "genbank" directory.
         :return: None
         """
+        if self.virsorter_directory is None or not os.path.isdir(self.virsorter_directory):
+            logger.info("No VirSorter directory to make contig diagrams")
+            return
+
         output_dir = self.get_diagram_output_directory()
         if output_dir and not os.path.exists(output_dir):
             os.mkdir(output_dir)
@@ -239,7 +314,6 @@ class results_analyzer(object):
         fun_label = lambda feature: feature.qualifiers['product'][0]
         fun_color = seq_features_to_color
         features_filter = lambda feature: feature.type == 'CDS'
-        hierarchy = ['Viral', 'Baltimore', 'Order', 'Family', 'Sub-family']
 
         virsorter_genbank_directory = os.path.join(self.virsorter_directory, "Predicted_viral_sequences")
         genbank_files = basic.search_for_file(virsorter_genbank_directory, end='.gb')
@@ -250,11 +324,14 @@ class results_analyzer(object):
             f.close()
             record_dict = SeqIO.to_dict(SeqIO.parse(StringIO.StringIO(gb_contents), 'genbank'))
             # CONTIG DIAGRAM
-            logger.info("Making (%d) diagrams for %s..." % (len(record_dict), os.path.basename(genbank_file)))
+            logger.info("Making %d diagrams for %s..." % (len(record_dict), os.path.basename(genbank_file)))
             for record_key in record_dict:
                 record = record_dict[record_key]
                 id = id_parser.get_id(record.id)
-                logger.info("Plotting: %s..." % id)
+                if self.ids_to_diagram and id not in self.ids_to_diagram:
+                    logger.info("Skipping: %s." % id)
+                    continue
+                logger.info("Diagraming: %s..." % id)
                 num_features = len(record.features)
                 fig_width = max(15, num_features * 0.5)
                 dims = [2, max(5, num_features / 6)]
@@ -265,100 +342,122 @@ class results_analyzer(object):
                 try:
                     graphic_record.plot(fig_width=fig_width, ax=ax)
                 except np.linalg.linalg.LinAlgError:
-                    logger.error("Could not make diagram for: %s" % record.id)
+                    logger.error("Could not diagram: %s" % record.id)
 
-                # SILHOUETTE
-                ax = fig.add_subplot(gs[0, 0])
                 contig_features = self.contig_features[self.contig_ids == id]
                 appended_data = np.vstack((self.phage_features, contig_features))
                 assignments = learning.kmeans(appended_data, self.k_clusters, verbose=False)
                 cluster = assignments[-1]
                 cluster_phage = np.arange(self.num_reference_phage)[assignments[:-1] == cluster]
-                cluster_size = len(cluster_phage)
-                if cluster_size > 0:
-                    cluster_lineages = np.array([self.lineages[i] for i in cluster_phage])
-                    all_kinds = set(cluster_lineages.ravel())
-                    color_dict = distinguishable_colors.get_color_dict(all_kinds)
-                    lineage_depth = cluster_lineages.shape[1]
+                cluster_lineages = np.array([self.lineages[i] for i in cluster_phage])
+                cluster_silhouettes = learning.cluster_silhouettes(appended_data, assignments, assignments[-1])
 
-                    cluster_silhouettes = learning.cluster_silhouettes(appended_data, assignments, assignments[-1])
-                    point_sil = cluster_silhouettes[-1]
-                    cluster_silhouettes = cluster_silhouettes[:-1]
-                    ax.barh(0, point_sil, color='red', alpha=0.9)
-                    ax.barh(range(1, len(cluster_silhouettes) + 1), sorted(cluster_silhouettes), color='blue', alpha=0.3)
-                    ax.set_xlim([0, 1])
-                    ax.set_ylim([0, cluster_size])
-                    plt.xlabel("Silhouette", fontsize=9)
-                    plt.tick_params(axis='both', which='major', labelsize=9)
-                    plt.title("Cluster Silhouettes", fontsize=10)
+                # SILHOUETTE
+                ax = fig.add_subplot(gs[0, 0])
+                self.plot_cluster_silhouettes(cluster_silhouettes, ax=ax)
 
-                    # TAXONOMY BAR CHART
-                    ax = fig.add_subplot(gs[0, 2])
-                    y_offset = np.zeros(lineage_depth)
-                    x = np.arange(lineage_depth)
-                    for kind in all_kinds:
-                        color = color_dict[kind]
-                        y = np.array([list(cluster_lineages[:, depth]).count(kind) for depth in xrange(lineage_depth)])
-                        ax.bar(np.arange(cluster_lineages.shape[1]), y, bottom=y_offset, color=color, label=kind, edgecolor=color)
-                        y_offset += y
-
-                    ax.legend(fontsize=5, bbox_to_anchor=(-0.1, 1), ncol=1 + int(len(all_kinds) > 20))
-                    ax.set_xlim([0, 5])
-                    ax.set_ylim([0, cluster_size])
-                    plt.xticks(0.25 + np.arange(5), hierarchy, rotation=45)
-                    plt.tick_params(axis='both', which='major', labelsize=9)
-                    plt.title("Cluster Taxonomy", fontsize=7)
-                    plt.show()
+                # TAXONOMY BAR CHART
+                ax = fig.add_subplot(gs[0, 2])
+                self.plot_cluster_composition(cluster_lineages, ax=ax)
 
                 # TEXT
-                category = self.contig_category_map[id]
-                category_name = get_category_name(category)
-                if id in self.phamer_dict.keys():
-                    phamer_score = self.phamer_dict[id]
-                else:
-                    phamer_score = "Not scored"
-                text = record.id
-                if self.dataset_name:
-                    text += "\nDataset: %s" % self.dataset_name
-                text += "\nCategory: {cat_num} - {cat_name}".format(cat_num=category,cat_name=category_name)
-                text += "\nPhamer score: {score}".format(score=phamer_score)
-
-                if cluster_size > 0:
-                    for lineage_depth in xrange(lineage_depth - 1, -1, -1):
-                        tup = tax.find_enriched_classification(cluster_lineages, self.lineages, lineage_depth)
-                        enriched_kind, result, kind_ratio = tup
-                        if enriched_kind:
-                            text += "\nCluster enriched: %.1f%% %s p=%.2g (%s)" % (100 * kind_ratio, enriched_kind, result[1], hierarchy[min(4, lineage_depth)])
-                            break
-
-                f = open(self.img_summary, 'r')
-                lines = [line for line in f.readlines() if line.startswith(str(id) + ',')]
-                f.close()
-                if len(lines) > 0:
-                    text += "\nIMG Annotations:"
-                i = 1
-                phylogenies = []
-                for line in lines:
-                    product = line.split(', ')[2]
-                    phylogeny = line.split(', ')[3]
-                    phylogenies.append(phylogeny.split(';'))
-                    if text.count('\n') > 15:
-                        text += "\n More genes listed in: %s" % os.path.basename(self.img_summary)
-                        break
-                    elif not 'missing' in phylogeny.lower() and not 'missing' in product.lower():
-                        text += "\n %d. %s" % (i, product)
-                        if 'virus' in phylogeny.lower() or 'phage' in phylogeny.lower():
-                            text += " (Viral)"
-                    i += 1
-
-                text_x = 5.5
-                text_y = 0
-                plt.text(text_x, text_y, text, fontsize=9)
+                plt.text(5.5, 0, self.get_contig_description_text(id, cluster_lineages=cluster_lineages), fontsize=9)
 
                 # SAVE
                 file_name = self.get_diagram_filename(id)
-                plt.savefig(file_name)
-                plt.close()
+                fig.savefig(file_name)
+                plt.close(fig)
+
+    def make_contig_plots(self):
+        """
+        This function makes plots of contigs witout the diagrams
+        :return: None
+        """
+        output_dir = self.get_diagram_output_directory()
+        if output_dir and not os.path.exists(output_dir):
+            os.mkdir(output_dir)
+
+        for id in self.ids_to_diagram:
+            contig_features = self.contig_features[self.contig_ids == id]
+            appended_data = np.vstack((self.phage_features, contig_features))
+            assignments = learning.kmeans(appended_data, self.k_clusters, verbose=False)
+            cluster = assignments[-1]
+            cluster_phage = np.arange(self.num_reference_phage)[assignments[:-1] == cluster]
+            cluster_lineages = np.array([self.lineages[i] for i in cluster_phage])
+
+            fig = plt.figure(figsize=(12, 6))
+            gs = gridspec.GridSpec(0, 4)
+
+            # SILHOUETTE
+            ax = fig.add_subplot(gs[0, 0])
+            self.plot_cluster_silhouettes(ax, id, cluster_phage)
+
+            # TAXONOMY BAR CHART
+            ax = fig.add_subplot(gs[0, 1])
+            self.plot_cluster_composition(ax, id, cluster_phage)
+
+            # TEXT
+            plt.text(5.5, 0, self.get_contig_description_text(id, cluster_lineages=cluster_lineages), fontsize=9)
+
+    def get_contig_description_text(self, id, cluster_lineages=None, lineage_depth=6):
+        """
+        This function makes a text description for a given contig id
+        :param id: A contig ID to get information for
+        :param cluster_lineages: A list of lineages
+        :return: A string that contains all information about the contig
+        """
+        text = self.id_header_map[id]
+        if self.dataset_name:
+            text += "\nDataset: %s" % self.dataset_name
+
+        if id in self.contig_category_map.keys():
+            category = self.contig_category_map[id]
+            category_name = get_category_name(category)
+        else:
+            category = "No VirSorter Category"
+            category_name = ""
+        text += "\nCategory: {cat_num} - {cat_name}".format(cat_num=category, cat_name=category_name)
+
+        if id in self.phamer_dict.keys():
+            phamer_score = self.phamer_dict[id]
+        else:
+            phamer_score = "Not scored"
+        text += "\nPhamer score: {score}".format(score=phamer_score)
+
+        clsuter_size = 0
+        if cluster_lineages is not None:
+            cluster_size = len(cluster_lineages)
+        if cluster_size > 0:
+            for lineage_depth in xrange(lineage_depth - 1, -1, -1):
+                tup = tax.find_enriched_classification(cluster_lineages, self.lineages, lineage_depth)
+                enriched_kind, result, kind_ratio = tup
+                if enriched_kind:
+                    text += "\nCluster enriched: %.1f%% %s p=%.2g (%s)" % (
+                    100 * kind_ratio, enriched_kind, result[1], self.phylogeny_names[min(4, lineage_depth)])
+                    break
+
+        lines = []
+        if self.img_summary is not None and os.path.exists(self.img_summary):
+            f = open(self.img_summary, 'r')
+            lines = [line for line in f.readlines() if line.startswith(str(id) + ',')]
+            f.close()
+        if len(lines) > 0:
+            text += "\nIMG Annotations:"
+        i = 1
+        phylogenies = []
+        for line in lines:
+            product = line.split(', ')[2]
+            phylogeny = line.split(', ')[3]
+            phylogenies.append(phylogeny.split(';'))
+            if text.count('\n') > 15:
+                text += "\n More genes listed in: %s" % os.path.basename(self.img_summary)
+                break
+            elif not 'missing' in phylogeny.lower() and not 'missing' in product.lower():
+                text += "\n %d. %s" % (i, product)
+                if 'virus' in phylogeny.lower() or 'phage' in phylogeny.lower():
+                    text += " (Viral)"
+            i += 1
+        return text
 
     # Summary files
     def make_prediction_summary(self, args=None):
@@ -507,7 +606,7 @@ class results_analyzer(object):
         self.lineages = self.get_lineages()
         self.lineage_color_map = self.get_lineage_colors()
 
-        logger.debug("Getting truth table...")
+        logger.debug("Generating truth table...")
         self.truth_table = self.get_virsorter_phamer_truth_table()
         self.virsroter_map = {phage.id: phage.category for phage in fileIO.read_virsorter_file(self.virsorter_summary)}
 
@@ -833,10 +932,6 @@ def prepare_for_SnapGene(genbank_file, destination):
         for gene in gene_prod_dict.keys():
             contents = contents.replace('/gene="%s"' % gene, '/gene="%s"' % gene_prod_dict[gene])
 
-        # This was an attempt at making these files viewable by dna_feature_viewer
-        #lines = contents.split("\n")
-        #contents = "\n".join([lines[0]] + [line.replace('/', '') for line in lines[1:]])
-        #contents.replace("\n\n", "\n")
         contents = contents.strip() + '\n//'
 
         f = open(new_gb_file, 'w')
@@ -915,7 +1010,6 @@ def decide_files(analyzer, args):
     elif args.features_file:
         analyzer.output_directory = os.path.join(os.path.dirname(args.features_file), "phamer_output")
 
-
     # Deciding what the dataset name should be...
     if args.dataset_name:
         analyzer.dataset_name = args.dataset_name
@@ -969,6 +1063,7 @@ if __name__ == '__main__':
     output_group.add_argument('-out', '--output_directory', help='Output directory path')
 
     options_group = parser.add_argument_group("Options")
+    options_group.add_argument('-diagram', '--diagram_ids', nargs='+', help="Contig IDS to diagram.")
     options_group.add_argument('-name', '--dataset_name',  help='Name of the data set')
     options_group.add_argument('-e', '--email', default=__email__, help='Email reference for Entrez')
 
@@ -989,16 +1084,14 @@ if __name__ == '__main__':
 
     analyzer = results_analyzer()
     decide_files(analyzer, args)
-    logger.info("Loading data from files...")
+    logger.info("Loading data...")
     analyzer.load_data()
+
+    analyzer.ids_to_diagram = args.diagram_ids
 
     if not os.path.isdir(analyzer.output_directory):
         os.mkdir(analyzer.output_directory)
 
-    logger.info("Making t-SNE plot...")
-    analyzer.make_tsne_plot()
-    logger.info("Plotting ROC curve and boxplot...")
-    analyzer.make_performance_plots()
     logger.info("Preparing GenBank files for SnapGene...")
     analyzer.prepare_gb_files_for_SnapGene()
     logger.info("Making prediction metrics file...")
@@ -1007,7 +1100,7 @@ if __name__ == '__main__':
     analyzer.make_integrated_summary()
     logger.info("Making gene csv file...")
     analyzer.make_gene_csv()
-    logger.info("Making contig diagrams...")
-    analyzer.make_contig_diagrams()
+    logger.info("Making plots...")
+    analyzer.make_all_plots()
 
     logger.info("Analysis complete.")
