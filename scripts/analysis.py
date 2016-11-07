@@ -208,19 +208,19 @@ class results_analyzer(object):
         """
         if ax is None:
             fig, ax = plt.subplots(1)
-        which_categories = [None, [1, 2, 4, 5]]
+        which_strictness = [False, True]
         colors = ['b', 'r']
         labels = ['All', 'Confident']
         for i in xrange(2):
-            tp, fp, fn, tn = self.get_virsorter_phamer_truth_table(categories=which_categories[i])
+            tp, fp, fn, tn = self.get_virsorter_phamer_truth_table(strict=which_strictness[i])
             positive_scores = [self.phamer_dict[id] for id in tp + fn]
             negative_scores = [self.phamer_dict[id] for id in fp + tn]
             fpr, tpr, roc_auc = learning.predictor_performance(positive_scores, negative_scores)
             ax.plot(fpr, tpr, colors[i], label='%s (AUC: %0.3f)' % (labels[i], roc_auc))
-        tp, fp, fn, tn = self.truth_table
-        tpr = len(tp) / float(len(tp) + len(fn))
-        fpr = len(fp) / float(len(fp) + len(tn))
-        ax.plot(fpr, tpr, 'or')
+            tpr = len(tp) / float(len(tp) + len(fn))
+            fpr = len(fp) / float(len(fp) + len(tn))
+            ax.plot(fpr, tpr, 'o%s' % colors[i])
+
         ax.plot([0, 1], [0, 1], 'k--')
         ax.set_xlim([0.0, 1.0])
         ax.set_ylim([0.0, 1.0])
