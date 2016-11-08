@@ -392,6 +392,11 @@ class results_analyzer(object):
         if output_dir and not os.path.exists(output_dir):
             os.mkdir(output_dir)
 
+        if self.ids_to_diagram is None:
+            self.ids_to_diagram = []
+        if self.have_been_diagramed is None:
+            self.have_been_diagramed = []
+
         for id in set(self.ids_to_diagram) - set(self.have_been_diagramed):
             logger.info("Plotting: %s..." % id)
             contig_features = self.contig_features[self.contig_ids == id]
