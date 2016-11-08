@@ -161,8 +161,8 @@ def lineage_proportions(lineages, normalize=True):
         diversity = set(kinds)
         for kind in diversity:
             mapping[kind] = kinds.count(kind)
-        if normalize:
-            mapping[kind] /= float(num_lineages)
+            if normalize:
+                mapping[kind] /= float(num_lineages)
         proportions.append(mapping)
     return proportions
 
