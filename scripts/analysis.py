@@ -289,6 +289,9 @@ class results_analyzer(object):
         :return: The axes that the bar char was plotted onto
         """
         cluster_size = len(cluster_lineages)
+        dims = len(cluster_lineages.shape)
+        if dims == 1:
+            cluster_lineages = np.array([cluster_lineages])
         lineage_depth = cluster_lineages.shape[1]
         all_kinds = set(cluster_lineages.ravel())
         color_dict = distinguishable_colors.get_color_dict(all_kinds)
@@ -341,7 +344,7 @@ class results_analyzer(object):
                 if self.ids_to_diagram is not None and id not in self.ids_to_diagram:
                     logger.info("Skipping: %s." % id)
                     continue
-                logger.info("Diagraming: %s..." % id)
+                logger.info("Diagramming: %s..." % id)
                 num_features = len(record.features)
                 fig_width = max(15, num_features * 0.5)
                 dims = [2, max(5, num_features / 6)]
@@ -371,7 +374,7 @@ class results_analyzer(object):
                 self.plot_cluster_composition(cluster_lineages, ax=ax)
 
                 # TEXT
-                plt.text(5.5, 0, self.get_contig_description_text(id, cluster_lineages=cluster_lineages), fontsize=9)
+                plt.text(5.5, 0, self.get_contig_description_text(id, cluster_lineages=cluster_lineages), fontsize=6)
 
                 # SAVE
                 file_name = self.get_diagram_filename(id)
@@ -411,7 +414,7 @@ class results_analyzer(object):
             self.plot_cluster_composition(cluster_lineages, ax=ax)
 
             # TEXT
-            plt.text(5.5, 0, self.get_contig_description_text(id, cluster_lineages=cluster_lineages), fontsize=9)
+            plt.text(5.5, 0, self.get_contig_description_text(id, cluster_lineages=cluster_lineages), fontsize=6)
 
             # SAVE
             file_name = self.get_diagram_filename(id)
@@ -420,7 +423,7 @@ class results_analyzer(object):
 
             self.have_been_diagramed += [id]
 
-    def get_contig_description_text(self, id, cluster_lineages=None, lineage_depth=6):
+    def get_contig_description_text(self, id, cluster_lineages=None, lineage_depth=6, line_limit=15):
         """
         This function makes a text description for a given contig id
         :param id: A contig ID to get information for
@@ -457,6 +460,7 @@ class results_analyzer(object):
                     100 * kind_ratio, enriched_kind, result[1], self.phylogeny_names[min(4, lineage_depth)])
                     break
 
+        # IMG genes part
         lines = []
         if self.img_summary is not None and os.path.exists(self.img_summary):
             f = open(self.img_summary, 'r')
@@ -467,10 +471,10 @@ class results_analyzer(object):
         i = 1
         phylogenies = []
         for line in lines:
-            product = line.split(', ')[2]
-            phylogeny = line.split(', ')[3]
+            product = ','.join(line.split(', ')[2:-1])
+            phylogeny = line.split(', ')[-1]
             phylogenies.append(phylogeny.split(';'))
-            if text.count('\n') > 15:
+            if text.count('\n') > line_limit:
                 text += "\n More genes listed in: %s" % os.path.basename(self.img_summary)
                 break
             elif not 'missing' in phylogeny.lower() and not 'missing' in product.lower():
@@ -478,6 +482,23 @@ class results_analyzer(object):
                 if 'virus' in phylogeny.lower() or 'phage' in phylogeny.lower():
                     text += " (Viral)"
             i += 1
+
+        # lineage proportion part
+        phylogenies = tax.extend_lineages(phylogenies)
+        text += "\nGene Homology Proportions:\n"
+        lineage_proportion_dict_list = tax.lineage_proportions(phylogenies)
+        maximum_depth = min(tax.deepest_classification(phylogenies), 5)
+        for depth in xrange(maximum_depth):
+            prop_dict = lineage_proportion_dict_list[depth]
+            phylogeny = [p for p in prop_dict.keys() if prop_dict[p] == max(prop_dict.values())][0]
+            percentage = prop_dict[phylogeny]
+            text += "%.1f%% %s%s" % (100 * percentage, phylogeny.strip(), [', ', ''][depth == maximum_depth])
+
+        text = text.strip()
+        if text.endswith(","):
+            text = text[:-1]
+        text = text.strip()
+
         return text
 
     # Summary files
