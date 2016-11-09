@@ -84,16 +84,23 @@ def read_lineage_file(lineage_file, extend=False):
     :param lineage_file: The filename of the lineage file
     :return: a dictionary mapping phage id to taxonomic lineage
     """
-    if not lineage_file:
-        raise TypeError("No lineage file provided.")
-    lines = open(lineage_file, 'r').readlines()[1:]
-    dictionary = {line.split('\t')[0]: [kind.strip() for kind in line.split('\t')[1].strip().split(';')] for line in lines}
-
+    dictionary = read_label_file(lineage_file)
     if extend:
         ids = dictionary.keys()
         lineages = taxonomy.extend_lineages(dictionary.values())
         dictionary = {ids[i]: lineages[i] for i in xrange(len(ids))}
+    return dictionary
 
+def read_label_file(label_file):
+    """
+    This function reads a file that encodes a mapping from id to label
+    :param label_file: The file where the mapping information is stored
+    :return: A dictonary that maps id to label
+    """
+    if not label_file:
+        raise TypeError("No label file provided.")
+    lines = open(label_file, 'r').readlines()[1:]
+    dictionary = {line.split('\t')[0]: [kind.strip() for kind in line.split('\t')[1].strip().split(';')] for line in lines}
     return dictionary
 
 
