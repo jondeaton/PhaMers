@@ -35,6 +35,8 @@ class cross_validator(object):
 
     def __init__(self):
 
+        self.positive_ids = None
+        self.negative_ids = None
         self.positive_data = None
         self.negative_data = None
         self.positive_scores = None
@@ -52,27 +54,33 @@ class cross_validator(object):
         This function is for cross validation of a scoring metric
         :return: The scores for the gold standard positive and negative points
         """
-        positive_asmt = np.arange(self.positive_data.shape[0]) % self.N
-        negative_asmt = np.arange(self.negative_data.shape[0]) % self.N
+        self.num_positive = self.positive_data.shape[0]
+        self.num_negative = self.negative_data.shape[0]
+        positive_asmt = np.arange(self.num_positive) % self.N
+        negative_asmt = np.arange(self.num_negative) % self.N
 
         np.random.shuffle(positive_asmt)
         np.random.shuffle(negative_asmt)
 
-        self.positive_scores, self.negative_scores = np.array([]), np.array([])
+        self.positive_scores = np.zeros(self.num_positive)
+        self.negative_scores = np.zeros(self.num_negative)
 
         for n in xrange(self.N):
             logger.info('Iteration %d/%d' % (1 + n, self.N))
             # Data segmentation, and sub-selection
             where_positive = (positive_asmt == n)
             where_negative = (negative_asmt == n)
+            positive_sub_div_size = np.sum(where_positive)
+
             scoring_data = np.vstack((self.positive_data[where_positive], self.negative_data[where_negative]))
             pos_training_data = self.positive_data[np.invert(where_positive)]
             neg_training_data = self.negative_data[np.invert(where_negative)]
+
             # Sub-selection scoring
             scores = self.scoring_function(scoring_data, pos_training_data, neg_training_data, method=self.method)
 
-            self.positive_scores = np.append(self.positive_scores, scores[:np.sum(where_positive)])
-            self.negative_scores = np.append(self.negative_scores, scores[np.sum(where_negative):])
+            self.positive_scores[where_positive] = scores[:positive_sub_div_size]
+            self.negative_scores[where_negative] = scores[positive_sub_div_size:]
 
         logger.info("%d-fold cross validation complete." % self.N)
         return self.positive_scores, self.negative_scores
@@ -130,7 +138,7 @@ class cross_validator(object):
         plt.savefig(file_name)
         plt.close()
 
-    def make_summary_file(self):
+    def make_metrics_file(self):
         """
         This function makes a summary file with all the information about the cross validation run
         :return: None
@@ -146,8 +154,28 @@ class cross_validator(object):
                         "True Positive Rate", "False Positive Rate", "False Negative Rate", "True Negative Rate"
                         "Positive Predictive Value", "Negative Predictive Value", "False Discovery Rate",
                         "Accuracy"]
-        file_name = self.get_summary_filename()
+        file_name = self.get_metric_filename()
         metrics_series.to_csv(file_name, sep="\t", mode='a')
+
+    def make_summary_file(self, id_label_map=None):
+        """
+        This function makes a file that contains each positive id and it's associated score, sorted
+        :return: None
+        """
+        text = "# Cross Validation Scores"
+        sorted_positive_scores = sorted(self.positive_scores)
+        sorted_ids = [id for (score, id) in sorted(zip(self.positive_scores, self.positive_ids))]
+        for i in xrange(len(sorted_ids)):
+            id = sorted_ids[i]
+            score = sorted_positive_scores[i]
+            if id_label_map is None:
+                text += "\n{id}\t{score}".format(id=id, score=score)
+            else:
+                text += "\n{id}\t{score}\t{label}".format(id=id, score=score, label=id_label_map[id])
+        file_name = self.get_summary_filename()
+        f = open(file_name, 'w')
+        f.write(text)
+        f.close()
 
     def cross_validate_all_algorithms(self):
         """
@@ -189,6 +217,9 @@ class cross_validator(object):
     def get_combined_roc_curve_filename(self):
         return os.path.join(self.output_directory, "all_algorithms_roc.svg")
 
+    def get_metric_filename(self):
+        return os.path.join(self.output_directory, "cross_validation_metrics.txt")
+
     def get_summary_filename(self):
         return os.path.join(self.output_directory, "cross_validation_summary.txt")
 
@@ -198,20 +229,21 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=script_description, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     input_group = parser.add_argument_group("Inputs")
-    input_group.add_argument('-pf', '--positive_features_file', help='Positive features')
-    input_group.add_argument('-nf', '--negative_features_file', help='Negative features')
+    input_group.add_argument('-pf', '--positive_features_file', help="Positive features file")
+    input_group.add_argument('-nf', '--negative_features_file', help="Negative features file")
 
     output_group = parser.add_argument_group("Outputs")
-    output_group.add_argument('-out', '--output_directory', help='Output directory for plots')
+    output_group.add_argument('-out', '--output_directory', help="Output directory for plots")
 
     options_group = parser.add_argument_group("Options")
     options_group.add_argument('-N', '--N_fold', default=20, type=int, help="Number of iteration in N-fold cross validation")
-    options_group.add_argument('-m', '--method', default='combo', help='Scoring algorithm method')
-    options_group.add_argument('-a', '--test_all', action='store_true', help='Flag to cross validate all algorithms')
+    options_group.add_argument('-m', '--method', default='combo', help="Scoring algorithm method")
+    options_group.add_argument('-a', '--test_all', action='store_true', help="Flag to cross validate all algorithms")
+    options_group.add_argument('-l', '--labels_file', help="Label file mapping id to label")
 
     console_options_group = parser.add_argument_group("Console Options")
-    console_options_group.add_argument('-v', '--verbose', action='store_true', default=False, help='Verbose output')
-    console_options_group.add_argument('--debug', action='store_true', default=False, help='Debug console')
+    console_options_group.add_argument('-v', '--verbose', action='store_true', default=False, help="Verbose output")
+    console_options_group.add_argument('--debug', action='store_true', default=False, help="Debug console")
     args = parser.parse_args()
 
     if args.debug:
@@ -234,6 +266,8 @@ if __name__ == '__main__':
     positive_ids, positive_data = fileIO.read_feature_file(args.positive_features_file)
     negative_ids, negative_data = fileIO.read_feature_file(args.negative_features_file)
 
+    validator.positive_ids = positive_ids
+    validator.negative_ids = negative_ids
     validator.positive_data = kmer.normalize_counts(positive_data)
     validator.negative_data = kmer.normalize_counts(negative_data)
 
@@ -243,8 +277,11 @@ if __name__ == '__main__':
     validator.plot_score_distributions()
     logger.info("Plotting ROC curve...")
     validator.plot_ROC()
+    logger.info("Making metrics file...")
+    validator.make_metrics_file()
     logger.info("Making summary file...")
-    validator.make_summary_file()
+    id_lineage_map = fileIO.read_label_file(args.labels_file)
+    validator.make_summary_file(id_label_map=id_lineage_map)
 
     if args.test_all:
         logger.info("Validating all algorithms...")
