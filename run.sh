@@ -12,12 +12,13 @@ scratch=$LOCAL_SATA
 now=`date +%Y-%m-%d.%H.%M.%S`
 
 do_taxonomy=false
-do_cross_validation=false
-do_phamer=true
-do_analysis=true
+do_cross_validation=true
+do_phamer=false
+do_analysis=false
 
 run_bijah_road_side4=false
-run_lower_geyser_basin=true
+run_lower_geyser_basin=false
+run_sulfolobus_or_acidianus=true
 
 # Locations
 home=~
@@ -36,6 +37,7 @@ analysis=$script_directory"/analysis.py"
 # Inputs
 bijah_road_side4=$datasets_directory"/bijah_road_side4"
 lower_geyser_basin=$datasets_directory"/lower_geyser_basin"
+sulfolobus_or_acidianus=$datasets_directory"/sulfolobus_or_acidianus"
 
 # Outputs
 taxonomy_plots=$phamer_directory"/outputs/taxonomy"
@@ -48,6 +50,9 @@ if $run_lower_geyser_basin
 elif $run_bijah_road_side4
     then
         input_directory=$bijah_road_side4
+elif $run_sulfolobus_or_acidianus
+    then
+        input_directory=$sulfolobus_or_acidianus
 fi
 
 # Phage Taxonomy (Figure 1)
@@ -69,7 +74,8 @@ if $do_cross_validation
         phage_features=$data_directory"/reference_features/positive_features.csv"
         bacteria_features=$data_directory"/reference_features/negative_features.csv"
         cuts_directory=$data_directory"/cut_features/cut_4mer_counts"
-        $python $cross_validation -pf $phage_features -nf $bacteria_features -out $cross_validation_out -N 5 --debug
+        phage_lineages=$data_directory"/phage_lineages.txt"
+        $python $cross_validation -pf $phage_features -nf $bacteria_features -out $cross_validation_out -N 5 --debug -l $phage_lineages
 fi
 
 # Phamer Scoring (Figure 3)
@@ -84,5 +90,6 @@ fi
 if $do_analysis
     then
         echo "====== Analysis ======"
-        $python $analysis -in $input_directory --data_directory $data_directory --debug
+        #$python $analysis -in $input_directory --data_directory $data_directory --debug
+        $python $analysis -in $input_directory --data_directory $data_directory --debug --diagram_ids 1
 fi
