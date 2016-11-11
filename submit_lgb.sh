@@ -6,8 +6,8 @@
 #SBATCH --mem-per-cpu=8000
 #SBATCH --mem=24000
 #SBATCH --time=12:00:00
-#SBATCH --error=/local10G/jdeaton/Phamer/outputs/error-%A.out
-#SBATCH --output=/local10G/jdeaton/Phamer/outputs/log-%A.out
+#SBATCH --error=/local10G/jdeaton/PhaMers/outputs/error-%A.out
+#SBATCH --output=/local10G/jdeaton/PhaMers/outputs/log-%A.out
 
 scratch=$LOCAL_SATA
 now=`date +%Y-%m-%d.%H.%M.%S`
@@ -70,14 +70,14 @@ if $do_cross_validation
         phage_features=$data_directory"/reference_features/positive_features.csv"
         bacteria_features=$data_directory"/reference_features/negative_features.csv"
         cuts_directory=$data_directory"/cut_features/cut_4mer_counts"
-        $python $cross_validation -pf $phage_features -nf $bacteria_features -out $cross_validation_out -N 20 -a --debug --test_all
+        $python $cross_validation -pf $phage_features -nf $bacteria_features -out $cross_validation_out -N 20 -a --debug --test_all --equalize_reference
 fi
 
 # Phamer Scoring (Figure 3)
 if $do_phamer
     then
         echo "====== Phamer Run ======"
-        $python $phamer -in $input_directory --data_directory $data_directory --do_tsne --debug
+        $python $phamer -in $input_directory --data_directory $data_directory --do_tsne --debug --equalize_reference
 fi
 
 # Analysis (Figure 4)
