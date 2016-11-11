@@ -51,7 +51,7 @@ class plot_maker(object):
         self.lineage_dict = None
 
         self.do_tsne = True
-        self.perplexity = 10
+        self.perplexity = 5
 
         self.kmeans = True
         self.dbscan = False
@@ -410,7 +410,7 @@ if __name__ == '__main__':
     output_group.add_argument('-out', '--output_directory', help='Output directory')
 
     options_group = parser.add_argument_group("Options")
-    options_group.add_argument('-do_tsne', action='store_true', help='Flag to do a new t-SNE run')
+    options_group.add_argument('-do_tsne', '--do_tsne', action='store_true', help='Flag to do a new t-SNE run')
 
     console_options_group = parser.add_argument_group("Console Options")
     console_options_group.add_argument('-v', '--verbose', action='store_true', default=False, help='Verbose output')
