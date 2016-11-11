@@ -159,10 +159,10 @@ class phamer_scorer(object):
             return
         num_ref = min(num_positive, num_negative)
         logger.debug("Equalizing reference data to: %d data-points" % num_ref)
-        self.positive_data[:, :num_ref]
-        self.negative_data[:, :num_ref]
-        self.positive_ids[:num_ref]
-        self.negative_ids[:num_ref]
+        self.positive_data = self.positive_data[:, :num_ref]
+        self.negative_data = self.negative_data[:, :num_ref]
+        self.positive_ids = self.positive_ids[:num_ref]
+        self.negative_ids = self.negative_ids[:num_ref]
         self.num_positive = num_ref
         self.num_negative = num_ref
 
