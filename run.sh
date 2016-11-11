@@ -6,19 +6,19 @@
 #SBATCH --mem-per-cpu=8000
 #SBATCH --mem=24000
 #SBATCH --time=12:00:00
-#SBATCH --error=/local10G/jdeaton/Phamer/outputs/error-%A.out
-#SBATCH --output=/local10G/jdeaton/Phamer/outputs/log-%A.out
+#SBATCH --error=/local10G/jdeaton/PhaMers/outputs/error-%A.out
+#SBATCH --output=/local10G/jdeaton/PhaMers/outputs/log-%A.out
 scratch=$LOCAL_SATA
 now=`date +%Y-%m-%d.%H.%M.%S`
 
 do_taxonomy=false
-do_cross_validation=true
-do_phamer=false
-do_analysis=false
+do_cross_validation=false
+do_phamer=true
+do_analysis=true
 
-run_bijah_road_side4=false
+run_bijah_road_side4=true
 run_lower_geyser_basin=false
-run_sulfolobus_or_acidianus=true
+run_sulfolobus_or_acidianus=false
 
 # Locations
 home=~
@@ -55,7 +55,7 @@ elif $run_sulfolobus_or_acidianus
         input_directory=$sulfolobus_or_acidianus
 fi
 
-# Phage Taxonomy (Figure 1)
+# Phage Taxonomy
 if $do_taxonomy
     then
         echo "====== Phage Taxonomy ======"
@@ -64,10 +64,10 @@ if $do_taxonomy
         bacteria_features=$data_directory"/reference_features/bacteria_features.csv"
         phage_lineages=$data_directory"/phage_lineages.txt"
         phage_tsne_file=$phamer_directory"/outputs/taxonomy/tsne_data.csv"
-        $python $phage_taxonomy -fasta $all_phage -features $phage_features -lin $phage_lineages -tsne $phage_tsne_file -out $taxonomy_plots --debug
+        $python $phage_taxonomy -fasta $all_phage -features $phage_features -lin $phage_lineages -tsne $phage_tsne_file -out $taxonomy_plots --debug --do_tsne
 fi
 
-# Cross Validation (Figure 2)
+# Cross Validation
 if $do_cross_validation
     then
         echo "====== Cross Validation ======"
@@ -75,21 +75,20 @@ if $do_cross_validation
         bacteria_features=$data_directory"/reference_features/negative_features.csv"
         cuts_directory=$data_directory"/cut_features/cut_4mer_counts"
         phage_lineages=$data_directory"/phage_lineages.txt"
-        $python $cross_validation -pf $phage_features -nf $bacteria_features -out $cross_validation_out -N 5 --debug -l $phage_lineages
+        $python $cross_validation -pf $phage_features -nf $bacteria_features -out $cross_validation_out -N 20 --debug -l $phage_lineages --test_all --equalize_reference
 fi
 
-# Phamer Scoring (Figure 3)
+# Phamer Scoring
 if $do_phamer
     then
         echo "====== Phamer ======"
-        #$python $phamer -in $input_directory --data_directory $data_directory --do_tsne --debug
-        $python $phamer -in $input_directory --data_directory $data_directory --debug
+        $python $phamer -in $input_directory --data_directory $data_directory --debug --equalize_reference --do_tsne
 fi
 
-# Analysis (Figure 4)
+# Analysis
 if $do_analysis
     then
         echo "====== Analysis ======"
-        #$python $analysis -in $input_directory --data_directory $data_directory --debug
-        $python $analysis -in $input_directory --data_directory $data_directory --debug --diagram_ids 1
+        $python $analysis -in $input_directory --data_directory $data_directory --debug
+        #$python $analysis -in $input_directory --data_directory $data_directory --debug --diagram_ids 1
 fi
