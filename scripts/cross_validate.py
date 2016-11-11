@@ -41,6 +41,7 @@ class cross_validator(object):
         self.negative_data = None
         self.positive_scores = None
         self.negative_scores = None
+        self.equalize_reference = False
 
         self.N = 20
         self.method = None
@@ -56,6 +57,16 @@ class cross_validator(object):
         """
         self.num_positive = self.positive_data.shape[0]
         self.num_negative = self.negative_data.shape[0]
+        if self.equalize_reference and self.num_positive != self.num_negative:
+            num_ref = min(self.num_positive, self.num_negative)
+            logger.debug("Equalizing reference data to: %d data-points" % num_ref)
+            self.positive_data[:, :num_ref]
+            self.negative_data[:, :num_ref]
+            self.positive_ids[:num_ref]
+            self.negative_ids[:num_ref]
+            self.num_positive = num_ref
+            self.num_negative = num_ref
+
         positive_asmt = np.arange(self.num_positive) % self.N
         negative_asmt = np.arange(self.num_negative) % self.N
 
@@ -240,6 +251,7 @@ if __name__ == '__main__':
     options_group.add_argument('-m', '--method', default='combo', help="Scoring algorithm method")
     options_group.add_argument('-a', '--test_all', action='store_true', help="Flag to cross validate all algorithms")
     options_group.add_argument('-l', '--labels_file', help="Label file mapping id to label")
+    options_group.add_argument('-equal', '--equalize_reference', action='store_true', help="Use same number of reference data from each")
 
     console_options_group = parser.add_argument_group("Console Options")
     console_options_group.add_argument('-v', '--verbose', action='store_true', default=False, help="Verbose output")
@@ -270,6 +282,7 @@ if __name__ == '__main__':
     validator.negative_ids = negative_ids
     validator.positive_data = kmer.normalize_counts(positive_data)
     validator.negative_data = kmer.normalize_counts(negative_data)
+    validator.equalize_reference = args.equalize_reference
 
     validator.cross_validate()
 

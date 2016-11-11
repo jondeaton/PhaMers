@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 import logging
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
+from sklearn import svm
 
 # My stuff
 import kmer
@@ -75,8 +76,8 @@ class phamer_scorer(object):
         self.k_clusters_negative = 20
         self.positive_bandwidth = 0.005
         self.negative_bandwidth = 0.01
-        self.positive_eps = 2
-        self.negative_eps = 2
+        self.positive_eps = 1
+        self.negative_eps = 1
         self.positive_min_samples = 2
         self.negative_min_samples = 2
         self.eps = [self.positive_eps, self.negative_eps]
@@ -154,6 +155,8 @@ class phamer_scorer(object):
         """
         num_positive = self.positive_data.shape[0]
         num_negative = self.negative_data.shape[0]
+        if num_negative == num_positive:
+            return
         num_ref = min(num_positive, num_negative)
         logger.debug("Equalizing reference data to: %d data-points" % num_ref)
         self.positive_data[:, :num_ref]
@@ -249,7 +252,7 @@ class phamer_scorer(object):
         Scoring function for the k-means method
         :return: A list of scores corresponding to the points
         """
-        machine = learning.svm.NuSVC()
+        machine = svm.NuSVC()
         machine.fit(self.train, self.labels)
         scores = machine.predict(self.data_points)
         return np.array(scores)
@@ -448,11 +451,12 @@ def score_points(scoring_data, positive_training_data, negative_training_data, m
     :return: A list of scores as a numpy array
     """
     scorer = phamer_scorer()
-    if method:
+    if method is not None:
         scorer.scoring_method = method
     scorer.data_points = scoring_data
     scorer.positive_data = positive_training_data
     scorer.negative_data = negative_training_data
+
     return scorer.score_points()
 
 def decide_files(scorer, args):
@@ -522,7 +526,7 @@ if __name__ == '__main__':
     options_group = parser.add_argument_group("Options")
     options_group.add_argument('-k', '--kmer_length', type=int, default=4, help='Length of k-mers analyzed')
     options_group.add_argument('-l', '--length_requirement', type=int, default=5000, help='Sequence length requirement')
-    options_group.add_argument('-equal', '--equalize_reference', action='store_true', help="Use same number of reference")
+    options_group.add_argument('-equal', '--equalize_reference', action='store_true', help="Use same number of reference data from each")
 
     tsne_options_group = parser.add_argument_group("t-SNE Options")
     tsne_options_group.add_argument('-do_tsne', '--do_tsne', action='store_true', help='Flag to perform new t-SNE')
