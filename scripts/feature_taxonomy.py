@@ -51,7 +51,7 @@ class plot_maker(object):
         self.lineage_dict = None
 
         self.do_tsne = True
-        self.perplexity = 5
+        self.perplexity = 35
 
         self.kmeans = True
         self.dbscan = False
