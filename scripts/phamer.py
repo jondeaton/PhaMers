@@ -110,9 +110,6 @@ class phamer_scorer(object):
             logger.info("Counting negative k-mers from: %s" % os.path.basename(self.negative_fasta))
             scorer.negative_ids, scorer.negative_data = kmer.count(self.negative_fasta)
 
-        if args.equalize_reference:
-            scorer.equalize_reference_data()
-
         scorer.find_input_files()
         # Loading input data
         if self.features_file is not None and os.path.exists(self.features_file):
@@ -158,9 +155,9 @@ class phamer_scorer(object):
         if num_negative == num_positive:
             return
         num_ref = min(num_positive, num_negative)
-        logger.debug("Equalizing reference data to: %d data-points" % num_ref)
-        self.positive_data = self.positive_data[:, :num_ref]
-        self.negative_data = self.negative_data[:, :num_ref]
+        logger.debug("Equalizing reference data to: %d data points" % num_ref)
+        self.positive_data = self.positive_data[:num_ref]
+        self.negative_data = self.negative_data[:num_ref]
         self.positive_ids = self.positive_ids[:num_ref]
         self.negative_ids = self.negative_ids[:num_ref]
         self.num_positive = num_ref
@@ -338,7 +335,7 @@ class phamer_scorer(object):
         del self.negative_data
         if self.use_tsne_python:
             try:
-                # Try importing and using the tsne_python implementation...
+                # Try importing and using the tsne_python implementation...i guess
                 import tsne
                 self.tsne_data = tsne.tsne(all_data, 2, self.tsne_perplexity)
             except:
@@ -560,6 +557,9 @@ if __name__ == '__main__':
     decide_files(scorer, args)
     logger.info("Loading data into scoring object...")
     scorer.load_data()
+
+    if args.equalize_reference:
+        scorer.equalize_reference_data()
 
     if not os.path.isdir(scorer.output_directory):
         os.mkdir(scorer.output_directory)

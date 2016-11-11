@@ -91,6 +91,7 @@ def read_lineage_file(lineage_file, extend=False):
         dictionary = {ids[i]: lineages[i] for i in xrange(len(ids))}
     return dictionary
 
+
 def read_label_file(label_file):
     """
     This function reads a file that encodes a mapping from id to label
@@ -102,7 +103,6 @@ def read_label_file(label_file):
     lines = open(label_file, 'r').readlines()[1:]
     dictionary = {line.split('\t')[0]: [kind.strip() for kind in line.split('\t')[1].strip().split(';')] for line in lines}
     return dictionary
-
 
 # K-mer files and header files
 def read_headers_file(header_file):
