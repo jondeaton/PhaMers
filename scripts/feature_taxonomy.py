@@ -121,7 +121,7 @@ class plot_maker(object):
         else:
             # Doing t-SNE
             logger.info("Performing t-SNE...")
-            if self.PCA_preprocess
+            if self.PCA_preprocess:
                 logger.info("Pre-processing with PCA...")
                 pca_data = PCA(n_components=self.pca_preprocess_red).fit_transform(self.features)
                 self.tsne_data = TSNE(perplexity=self.tsne_perplexity, verbose=True).fit_transform(pca_data)
