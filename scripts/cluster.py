@@ -16,13 +16,11 @@ import argparse
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-in", "--features_file", help="Features file")
-    parser.add_argument("-out", "--output_file", help="Filename for the output pot")
+    parser.add_argument("-in", "--features_file", required=True, help="Features file")
+    parser.add_argument("-out", "--output_file", required=False, help="Filename for the output plot")
     args = parser.parse_args()
 
-    features_file = args.features_file
-
-    ids, data = fileIO.read_feature_file(features_file, normalize=True)
+    ids, data = fileIO.read_feature_file(args.features_file, normalize=True)
 
     k_clusters = np.arange(10, 130, 10)
     k_clusters = np.append(k_clusters, np.arange(100, 120))
@@ -44,7 +42,7 @@ if __name__ == '__main__':
     ax.set_title("Phage k-mers")
 
     if args.output_file is None:
-        filename = "%s_sil.svg" % os.path.splitext(os.path.basename(features_file))[0]
+        filename = "%s_sil.svg" % os.path.splitext(os.path.basename(args.features_file))[0]
     else:
         filename = args.output_file
     fig.savefig(filename)
