@@ -67,8 +67,8 @@ class plot_maker(object):
         self.markers = ['v', '^', '<', '>', '8', 's', 'p', 'h', 'H', 'D', 'd']
 
         self.annotate_kinds = True
-        self.tsne_figsize = (14, 11)
-        self.bar_figsize = (12, 6)
+        self.tsne_figsize = (4, 3)
+        self.bar_figsize = (4, 3)
 
         #TODO: figure out what this does when set to True
         self.unknown_toggle = False

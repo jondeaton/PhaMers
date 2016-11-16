@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """
-This function implements basic save and load functionality for the various file types
+fileIO.py
+
+This script gives save and load functionality for the various file types used in PhaMers
 """
 
 import gzip
@@ -229,7 +231,7 @@ def save_phamer_scores(ids, scores, file_name, args=None):
     :param filename: Filename to save it to
     :return: None
     """
-    header = "Phamer score file"
+    header = "PhaMers score file"
     if args is not None:
         header = basic.generate_summary(args, header=header)
     arr = np.vstack((ids.astype(str), scores.astype(str))).transpose()

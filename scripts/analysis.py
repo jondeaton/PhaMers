@@ -2,7 +2,8 @@
 """
 analysis.py
 
-This script is for doing analysis of PhaMers results and integrating results with VirSroter and IMG outputs
+This script is for doing analysis of PhaMers results and integrating results with VirSroter and IMG outputs.
+This script does a lot of things...
 """
 
 import os

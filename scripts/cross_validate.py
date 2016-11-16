@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """
 cross_validate.py
+
 This script is for doing N-fold cross validation of the Phamer scoring algorithm
 """
 
