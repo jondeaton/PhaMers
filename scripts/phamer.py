@@ -87,7 +87,7 @@ class phamer_scorer(object):
 
         self.use_tsne_python = False
         self.tsne_perplexity = 30.0
-        self.pca_preprocess = False
+        self.pca_preprocess = True
         self.pca_preprocess_red = 50
         self.tsne_figsize = (30, 24)
 
