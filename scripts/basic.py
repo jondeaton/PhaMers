@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 """
+basic.py
+
 This script implements some basic function used in various places
 """
 
@@ -80,11 +82,12 @@ def chop(array, chops):
     :return: A list of numpy arrays split as described previously
     """
     chopped = []
-    array = np.array(array)
+    if type(array) is not np.ndarray:
+        array = np.array(array)
     at = 0
-    for n in chops:
-        chopped.append(array[at:at+n])
-        at += 1 + n
+    for chop_size in chops:
+        chopped.append(array[at: at + chop_size])
+        at += chop_size
     return chopped
 
 def decide_file(specified_file, found_file, abort=None):
