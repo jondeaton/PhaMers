@@ -61,6 +61,7 @@ class plot_maker(object):
         self.min_samples = 10
         self.eps = [0.014, 1.5][self.cluster_on_tsne]
         self.PCA_preprocess = True
+        self.pca_preprocess_red = 50
 
         self.order_clusters_by_size = True
         self.taxa_depth = 'Family'
@@ -124,7 +125,7 @@ class plot_maker(object):
             if self.PCA_preprocess:
                 logger.info("Pre-processing with PCA...")
                 pca_data = PCA(n_components=self.pca_preprocess_red).fit_transform(self.features)
-                self.tsne_data = TSNE(perplexity=self.tsne_perplexity, verbose=True).fit_transform(pca_data)
+                self.tsne_data = TSNE(perplexity=self.perplexity, verbose=True).fit_transform(pca_data)
             else:
                 self.tsne_data = TSNE(perplexity=self.perplexity, verbose=True).fit_transform(self.features)
             logger.info("t-SNE complete.")
