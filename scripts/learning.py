@@ -139,7 +139,7 @@ def kmeans(data, k, verbose=False, sort_by_size=False):
         assignment = np.array(assignment)
     if verbose:
         sil_score = silhouette_score(data, assignment)
-        logger.debug("k-means clustering (k: %d) silhouette score: %f" % (k, np.mean(sil_score)))
+        logger.debug("k-means (k: %d), mean silhouette: %f" % (k, np.mean(sil_score)))
     if sort_by_size:
         assignment = sort_assignment_by_size(assignment, ascending=False)
     return assignment
