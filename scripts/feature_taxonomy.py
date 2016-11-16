@@ -27,6 +27,7 @@ import fileIO
 import learning
 import taxonomy as tax
 import distinguishable_colors
+from sklearn.decomposition import PCA
 
 __version__ = 1.0
 __author__ = "Jonathan Deaton (jdeaton@stanford.edu)"
@@ -59,6 +60,7 @@ class plot_maker(object):
         self.k_clusters = 34
         self.min_samples = 10
         self.eps = [0.014, 1.5][self.cluster_on_tsne]
+        self.PCA_preprocess = True
 
         self.order_clusters_by_size = True
         self.taxa_depth = 'Family'
@@ -119,7 +121,12 @@ class plot_maker(object):
         else:
             # Doing t-SNE
             logger.info("Performing t-SNE...")
-            self.tsne_data = TSNE(perplexity=self.perplexity, verbose=True).fit_transform(self.features)
+            if self.PCA_preprocess
+                logger.info("Pre-processing with PCA...")
+                pca_data = PCA(n_components=self.pca_preprocess_red).fit_transform(self.features)
+                self.tsne_data = TSNE(perplexity=self.tsne_perplexity, verbose=True).fit_transform(pca_data)
+            else:
+                self.tsne_data = TSNE(perplexity=self.perplexity, verbose=True).fit_transform(self.features)
             logger.info("t-SNE complete.")
             self.tsne_file = self.get_tsne_filename()
             fileIO.save_tsne_data(self.tsne_file, self.tsne_data, self.id_list)
@@ -174,7 +181,6 @@ class plot_maker(object):
         colors = distinguishable_colors.get_colors(self.num_clusters + 1)
         plt.figure(figsize=self.tsne_figsize)
         plt.clf()
-        axes = pylab.axes()
         ax = plt.subplot(111)
         box = ax.get_position()
         centroids = learning.get_centroids(self.tsne_data, self.assignment)
