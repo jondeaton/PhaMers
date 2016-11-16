@@ -36,7 +36,7 @@ if __name__ == '__main__':
 
     fig = plt.figure()
     ax = plt.subplot(111)
-    ax.errorbar(k_clusters, sil_scores, 'k-o', yerr=sil_score_std)
+    ax.errorbar(k_clusters, sil_scores, yerr=sil_score_std)
     ax.set_xlabel("Number of Clusters")
     ax.set_ylabel("Mean Silhouette")
     ax.set_title("Phage k-mers")
