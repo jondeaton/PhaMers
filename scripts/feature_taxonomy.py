@@ -56,8 +56,8 @@ class plot_maker(object):
 
         self.kmeans = True
         self.dbscan = False
-        self.cluster_on_tsne = True
-        self.k_clusters = 34
+        self.cluster_on_tsne = False
+        self.k_clusters = 40
         self.min_samples = 10
         self.eps = [0.014, 1.5][self.cluster_on_tsne]
         self.PCA_preprocess = True
@@ -70,8 +70,8 @@ class plot_maker(object):
         self.markers = ['v', '^', '<', '>', '8', 's', 'p', 'h', 'H', 'D', 'd']
 
         self.annotate_kinds = True
-        self.tsne_figsize = (4, 3)
-        self.bar_figsize = (4, 3)
+        self.tsne_figsize = (9, 6)
+        self.bar_figsize = (10, 5)
 
         #TODO: figure out what this does when set to True
         self.unknown_toggle = False
