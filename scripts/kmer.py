@@ -12,7 +12,6 @@ import numpy as np
 import os
 import gzip
 import argparse
-import time
 import random
 from Bio import SeqIO
 import logging
@@ -266,22 +265,18 @@ def load_counts(kmer_length, location=None, counts_file=None, identifier='fna', 
     """
     if counts_file and os.path.isfile(counts_file):
         logger.info("Loading %d-mers from %s..." % (kmer_length, os.path.basename(counts_file)))
-        tic = time.time()
         ids, counts = fileIO.load_feature_file(counts_file, normalize=normalize)
     elif location and os.path.isfile(location):
         logger.info("Counting %d-mers in %s..." % (kmer_length, os.path.basename(location)))
-        tic = time.time()
         ids, counts = count_file(location, kmer_length, normalize=normalize,  symbols=symbols)
         if counts_file:
             fileIO.save_counts(counts, ids, count_file)
     elif location and os.isdir(location):
         logger.info("Counting %d-mers in %s..." % (kmer_length, os.path.basename(location)))
-        tic = time.time()
         ids, counts = count_directory(location, kmer_length, normalize=normalize, identifier=identifier, symbols=symbols)
         if counts_file:
             fileIO.save_counts(counts, ids, count_file)
-    run_time = time.time() - tic
-    logger.info("done. %dhr %dmin %.1fsec" % (run_time // 3600, (run_time % 3600) // 60, run_time % 60))
+    logger.info("Data loaded.")
     return ids, counts
 
 
@@ -324,9 +319,8 @@ if __name__ == '__main__':
         logger.setLevel(logging.WARNING)
         logging.basicConfig(format='[log][%(levelname)s] - %(message)s')
 
-    logger.info("Couting k-mers...")
+    logger.info("Counting k-mers...")
 
-    tic = time.time()
     if input and os.path.isfile(input):
         ids, kmers = count_file(input, kmer_length, symbols=symbols)
     elif input and os.path.isdir(input):
@@ -337,4 +331,4 @@ if __name__ == '__main__':
 
     fileIO.save_counts(kmers, ids, output, args=args)
 
-    logger.info("done. %.1f seconds" % (time.time() - tic))
+    logger.info("K-mer counting complete.")
