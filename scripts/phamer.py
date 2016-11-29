@@ -2,7 +2,7 @@
 """
 phamer.py
 
-Phamer: Phage-finding algorithm that uses k-mer frequency comparison and t-SNE
+PhaMers: Phage-finding algorithm that uses k-mer frequency comparison and t-SNE
 Jonathan Deaton, Quake Lab, Stanford University, 2016
 """
 
