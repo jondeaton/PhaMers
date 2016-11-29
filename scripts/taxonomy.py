@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import os
-import sys
 import time
 from Bio import Entrez
 from Bio import SeqIO
@@ -10,6 +9,8 @@ import argparse
 import numpy as np
 from scipy import stats
 import logging
+
+import fileIO
 
 __version__ = 1.0
 __author__ = "Jonathan Deaton (jdeaton@stanford.edu)"
@@ -169,7 +170,7 @@ def lineage_proportions(lineages, normalize=True):
 
 def test_population_lineage_differenses(test_lineages, base_lineages):
     """
-
+    This function tests whether there is a difference between a set of lineages and a subset of those lineages
     :param test_lineages:
     :param base_lineages:
     :return: A list of dictionaries that map classification to tuples of p_value and proportion
@@ -272,6 +273,29 @@ def make_lineage_file(fasta_file, lineage_file, wait=True):
 
     retrieve_lineages(ids, lineage_file, wait=wait)
 
+
+def filter_feature_file(feature_file, lineage_file, filtered_features_file):
+    """
+    This function takes a file with features and filters it such that only one member of each lineage is chosen
+    to represent the whole lineage
+    :param feature_file: A file containing a mapping from ID to features
+    :param lineage_file: A file containing a mapping from ID to lineage
+    :return: None.
+    """
+    ids, features = fileIO.read_feature_file(feature_file)
+    lineage_dict = fileIO.read_lineage_file(lineage_file)
+    used_lineages = []
+    which = []
+    for i in xrange(len(ids)):
+        if lineage_dict[ids[i]] not in used_lineages:
+            which += [i]
+            used_lineages += [lineage_dict[ids[i]]]
+    filtered_ids = ids[which]
+    filtered_features = features[which]
+    header = "# Filtered k-mer count file"
+    header += "\n# Filtered from: %s" % feature_file
+    header += "\n# Filtered by: %s" % lineage_file
+    fileIO.save_counts(filtered_features, filtered_ids, filtered_features_file, header=header)
 
 if __name__ == '__main__':
 
