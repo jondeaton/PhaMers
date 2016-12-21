@@ -155,8 +155,8 @@ class cross_validator(object):
         This function makes a summary file with all the information about the cross validation run
         :return: None
         """
-        summary_text = "# Cross Validation Prediction Metrics"
-        file_name = self.get_summary_filename()
+        summary_text = "# Cross Validation Performance Metrics"
+        file_name = self.get_metric_filename()
         with open(file_name, 'w') as f:
             f.write(summary_text + "\n")
             f.close()
@@ -166,7 +166,6 @@ class cross_validator(object):
                         "True Positive Rate", "False Positive Rate", "False Negative Rate", "True Negative Rate"
                         "Positive Predictive Value", "Negative Predictive Value", "False Discovery Rate",
                         "Accuracy"]
-        file_name = self.get_metric_filename()
         metrics_series.to_csv(file_name, sep="\t", mode='a')
 
     def make_summary_file(self, id_label_map=None):
