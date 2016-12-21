@@ -230,10 +230,10 @@ class cross_validator(object):
         return os.path.join(self.output_directory, "all_algorithms_roc.svg")
 
     def get_metric_filename(self):
-        return os.path.join(self.output_directory, "cross_validation_metrics.txt")
+        return os.path.join(self.output_directory, "metrics.txt")
 
     def get_summary_filename(self):
-        return os.path.join(self.output_directory, "cross_validation_summary.txt")
+        return os.path.join(self.output_directory, "scores.txt")
 
 if __name__ == '__main__':
 
