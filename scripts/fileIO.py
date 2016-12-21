@@ -31,18 +31,33 @@ def read_fasta(fasta_file):
     :param fasta_file: the file name or path to file. Zipped files are okay.
     :return: A tuple containing a list of fasta id strings and a list of string sequences
     """
-    if fasta_file.endswith('.gz'):
-        f = gzip.open(fasta_file, 'r')
-    else:
-        f = open(fasta_file, 'r')
+    opener = (open, gzip.open)[fasta_file.endswith(".gz")]
+    f = opener(fasta_file)
     ids, sequences = [], []
     records = SeqIO.parse(f, 'fasta')
     for record in records:
         ids.append(id_parser.get_id(str(record.id)))
         sequences.append(str(record.seq))
-    del records
+    f.close()
     return np.array(ids), sequences
 
+def extract_fasta_by_id(fasta_file, ids, target_fasta, id_getter=id_parser.get_id):
+    """
+    This function writes only those sequences in a fasta file that
+    :param fasta_file: A file containing a superset of the fasta sequences desired in the target file
+    :param ids: A list of ids
+    :param target_fasta: A filename to write the subset fastas to
+    :param id_getter: a function that gets the id of a fasta header
+    :return: None.
+    """
+    opener = (open, gzip.open)[fasta_file.endswith(".gz")]
+    f = opener(fasta_file)
+    records = SeqIO.parse(f, 'fasta')
+    out_fh = open(target_fasta, 'w')
+    for record in records:
+        if id_getter(str(record.id)) in ids:
+            out_fh.write(">{header}\n{seq}\n".format(header=record.id, seq=record.seq))
+    f.close()
 
 def get_fasta_ids(fasta_file):
     """

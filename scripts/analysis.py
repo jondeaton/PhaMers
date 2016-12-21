@@ -536,13 +536,13 @@ class results_analyzer(object):
             if score >= self.phamer_score_threshold:
                 phamer_category_counts[category] += 1
 
-        summary = basic.generate_summary(args, header="Summary of Phamer results")
-        total_count = np.sum(category_counts[[1, 2, 4, 5]]) + np.sum(phamer_category_counts[[3, 6]])
-        summary += "\nTotal/Final count: %s\n" % total_count
+        summary = basic.generate_summary(args, header="Summary of PhaMers compared to VirSorter", line_start='# ')
+        # total_count = np.sum(category_counts[[1, 2, 4, 5]]) + np.sum(phamer_category_counts[[3, 6]])
+        # summary += "\nTotal phages found by PhaMers AND VirSorter: %s\n" % total_count
 
         for category in xrange(1, 7):
             summary += "VirSorter Category %s: " % category
-            summary += "%d (Phamer: %d)\n" % (category_counts[category], phamer_category_counts[category])
+            summary += "%d (PhaMers: %d)\n" % (category_counts[category], phamer_category_counts[category])
 
         summary += "True Positives: %d\n" % len(self.truth_table[0])
         summary += "False Positives: %d\n" % len(self.truth_table[1])
@@ -577,7 +577,7 @@ class results_analyzer(object):
         This function makes a CSV summary of all the results from VirSroter, Phamer, and IMG
         :return: None
         """
-        criteria = lambda id: self.virsroter_map[id] in [1, 2, 4, 5] or (id in self.phamer_dict.keys() and self.phamer_dict[id] > self.phamer_score_threshold)
+        criteria = lambda id: self.virsroter_map[id] in [1, 2, 4, 5] or (id in self.phamer_dict.keys() and self.phamer_dict[id] >= self.phamer_score_threshold)
         ids = [id for id in self.virsroter_map.keys() if criteria(id)]
         df = pd.DataFrame(columns=self.summary_fields)
         df['Header'] = [self.id_header_map[id] for id in ids]
@@ -601,6 +601,10 @@ class results_analyzer(object):
 
         summary_file_path = self.get_prediction_summary_filename()
         df.to_csv(summary_file_path, delimiter=', ')
+
+        self.output_fasta_file = self.get_output_fasta_filename()
+        logger.info("Saving putative phages in FASTA format: %s" % os.path.basename(self.output_fasta_file))
+        fileIO.extract_fasta_by_id(self.fasta_file, ids, self.output_fasta_file)
 
     def make_gene_csv(self):
         """
@@ -897,6 +901,9 @@ class results_analyzer(object):
         :return: A path to file to save an ROC curve
         """
         return os.path.join(self.output_directory, 'roc.svg')
+
+    def get_output_fasta_filename(self):
+        return os.path.join(self.output_directory, "putative_phage.fasta")
 
 # === FUNCTIONS ===
 def get_name_id_map(contigs_file=None, headers=None):
