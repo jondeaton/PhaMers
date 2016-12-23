@@ -774,7 +774,7 @@ class results_analyzer(object):
                         if sil < max(0, mean_sil - std_sil):
                             continue
                         tax_text = "{kind} ({pct}), sil:{sil} ({mean_sil} +/- {std_sil}), p={p} {taxon}"
-                        tax_text.format(kind=tup[0], pct=100 * tup[2], sil=sil, mean_sil=mean_sil, std_sil=std_sil, p=tup[1], taxon=self.phylogeny_names[min(4, lineage_depth)])
+                        tax_text = tax_text.format(kind=tup[0], pct=100.0*tup[2], sil=sil, mean_sil=mean_sil, std_sil=std_sil, p=tup[1], taxon=self.phylogeny_names[min(4, lineage_depth)])
                         self.taxonomy_prediction_dict[id] = (tup, tax_text)
                         break
         return self.taxonomy_prediction_dict
