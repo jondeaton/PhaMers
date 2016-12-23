@@ -87,7 +87,6 @@ class results_analyzer(object):
 
         self.input_directory = None
         self.dataset_name = 'unnamed'
-
         self.data_directory = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
         self.lineage_file = None
         self.virsorter_summary = None
@@ -101,14 +100,17 @@ class results_analyzer(object):
         self.pie_charts_output = None
         self.diagram_output_directory = None
 
-        self.phage_features = None
+        self.taxonomy_prediction_dict = None
+        self.cluster_silhouette_map = None
+        self.cluster_lineage_map = None
 
+        self.phage_features = None
         self.phamer_score_threshold = 0
         self.strict = False
-
         self.lineage_dict = None
+        self.taxonomy_prediction_dict = None
 
-        self.summary_fields = ['Header', 'Contig_Name', 'Contig_ID', 'Length', 'VirSorter_Category', 'Phamer_Score', 'IMG_Products_and_Phylogenies']
+        self.summary_fields = ['Header', 'Contig_Name', 'Contig_ID', 'Length', 'VirSorter_Category', 'Phamer_Score', 'IMG_Products_and_Phylogenies', "PhaMers_Taxonomy"]
         self.phylogeny_names = ['Viruses', 'Baltimore', 'Order', 'Family', 'Sub-Family', 'Genus']
 
         self.cluster_algorithm = 'kmeans'
@@ -364,13 +366,8 @@ class results_analyzer(object):
                 except np.linalg.linalg.LinAlgError:
                     logger.error("Could not diagram: %s" % record.id)
 
-                contig_features = self.contig_features[self.contig_ids == id]
-                appended_data = np.vstack((self.phage_features, contig_features))
-                assignments = learning.kmeans(appended_data, self.k_clusters, verbose=False)
-                cluster = assignments[-1]
-                cluster_phage = np.arange(self.num_reference_phage)[assignments[:-1] == cluster]
-                cluster_lineages = np.array([self.lineages[i] for i in cluster_phage])
-                cluster_silhouettes = learning.cluster_silhouettes(appended_data, assignments, assignments[-1])
+                cluster_silhouettes = self.cluster_silhouette_map[id]
+                cluster_lineages = self.cluster_lineage_map[id]
 
                 # SILHOUETTE
                 ax = fig.add_subplot(gs[0, 0])
@@ -589,6 +586,10 @@ class results_analyzer(object):
         if self.dataset_name is not None:
             df['DataSet'] = self.dataset_name
 
+        if self.taxonomy_prediction_dict is None:
+            logger.info("Clustering contigs with Phages to predict taxonomy...")
+            self.taxonomy_prediction_dict = self.get_taxonomy_prediction_dict()
+
         for id in ids:
             try:
                 df.Phamer_Score[df.Contig_ID == id] = self.phamer_dict[id]
@@ -599,6 +600,9 @@ class results_analyzer(object):
                 df.IMG_Products_and_Phylogenies[df.Contig_ID == id] = self.img_proucts_map[id]
             except KeyError:
                 pass
+
+            if id in self.taxonomy_prediction_dict:
+                df.PhaMers_Taxonomy[df.Contig_ID == id] = str(self.taxonomy_prediction_dict[id])
 
         summary_file_path = self.get_prediction_summary_filename()
         df.to_csv(summary_file_path, delimiter=', ')
@@ -746,6 +750,44 @@ class results_analyzer(object):
         true_negatives = [id for id in self.phamer_dict.keys() if id not in phamer_ids and id not in vs_ids]
 
         return true_positives, false_positives, false_negatives, true_negatives
+
+    def get_taxonomy_prediction_dict(self):
+        """
+        This function makes a map from id to taxonomic prediction based on
+        :return:
+        """
+        self.taxonomy_prediction_dict = {}
+        self.cluster_silhouette_map = {}
+        self.cluster_lineage_map = {}
+        ids = self.get_virsorter_ids()
+        j = 1
+        for id in ids:
+            logger.debug("%d of %d contigs" % (j, len(ids)))
+            j += 1
+            contig_features = self.contig_features[self.contig_ids == id]
+            appended_data = np.vstack((self.phage_features, contig_features))
+            assignments = learning.kmeans(appended_data, self.k_clusters, verbose=False)
+            cluster = assignments[-1]
+            cluster_phage = np.arange(self.num_reference_phage)[assignments[:-1] == cluster]
+            self.cluster_lineage_map[id] = np.array([self.lineages[i] for i in cluster_phage])
+            self.cluster_silhouette_map[id] = learning.cluster_silhouettes(appended_data, assignments, assignments[-1])
+
+            cluster_size = len(cluster_phage)
+            if cluster_size > 0:
+                for lineage_depth in xrange(6 - 1, -1, -1):
+                    tup = tax.find_enriched_classification(self.cluster_lineage_map[id], self.lineages, lineage_depth)
+                    self.taxonomy_prediction_dict[id] = tup
+        return self.taxonomy_prediction_dict
+
+    def get_virsorter_ids(self):
+        """
+        This function finds VirSorter IDs for all putative phages
+        :return: A list of IDs
+        """
+        f = open(self.virsorter_summary)
+        ids = [id_parser.get_id(line.split(',')[0]) for line in f.readlines() if not line.startswith('#')]
+        f.close()
+        return ids
 
     # File Location
     def find_input_files(self):
@@ -1164,7 +1206,9 @@ if __name__ == '__main__':
     analyzer.prepare_gb_files_for_SnapGene()
     logger.info("Making prediction metrics file...")
     analyzer.make_prediction_summary(args=args)
-    logger.info("Making summary file...")
+    logger.info("Making taxonomic predictions...")
+    analyzer.get_taxonomy_prediction_dict()
+    logger.info("Making integrated summary...")
     analyzer.make_integrated_summary()
     logger.info("Making gene csv file...")
     analyzer.make_gene_csv()
