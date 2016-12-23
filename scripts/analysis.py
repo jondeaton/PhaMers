@@ -457,17 +457,8 @@ class results_analyzer(object):
             phamer_score = "Not scored"
         text += "\nPhamer score: {score}".format(score=phamer_score)
 
-        clsuter_size = 0
-        if cluster_lineages is not None:
-            cluster_size = len(cluster_lineages)
-        if cluster_size > 0:
-            for lineage_depth in xrange(lineage_depth - 1, -1, -1):
-                tup = tax.find_enriched_classification(cluster_lineages, self.lineages, lineage_depth)
-                enriched_kind, result, kind_ratio = tup
-                if enriched_kind:
-                    text += "\nCluster enriched: %.1f%% %s p=%.2g (%s)" % (
-                    100 * kind_ratio, enriched_kind, result[1], self.phylogeny_names[min(4, lineage_depth)])
-                    break
+        if id in self.taxonomy_prediction_dict:
+            text += "\nCluster enriched: %s" % self.taxonomy_prediction_dict[id][1]
 
         # IMG genes part
         lines = []
@@ -602,7 +593,7 @@ class results_analyzer(object):
                 pass
 
             if id in self.taxonomy_prediction_dict:
-                df.PhaMers_Taxonomy[df.Contig_ID == id] = str(self.taxonomy_prediction_dict[id])
+                df.PhaMers_Taxonomy[df.Contig_ID == id] = self.taxonomy_prediction_dict[id][1]
 
         summary_file_path = self.get_prediction_summary_filename()
         df.to_csv(summary_file_path, delimiter=', ')
@@ -753,8 +744,8 @@ class results_analyzer(object):
 
     def get_taxonomy_prediction_dict(self):
         """
-        This function makes a map from id to taxonomic prediction based on
-        :return:
+        This function makes a map from id to taxonomic prediction based on clusters
+        :return: A dictionary mapping ids to taxonomic prediction
         """
         self.taxonomy_prediction_dict = {}
         self.cluster_silhouette_map = {}
@@ -762,7 +753,7 @@ class results_analyzer(object):
         ids = self.get_virsorter_ids()
         j = 1
         for id in ids:
-            logger.debug("%d of %d contigs" % (j, len(ids)))
+            logger.debug("ID: %s (%d of %d contigs)" % (id, j, len(ids)))
             j += 1
             contig_features = self.contig_features[self.contig_ids == id]
             appended_data = np.vstack((self.phage_features, contig_features))
@@ -774,9 +765,18 @@ class results_analyzer(object):
 
             cluster_size = len(cluster_phage)
             if cluster_size > 0:
-                for lineage_depth in xrange(6 - 1, -1, -1):
+                for lineage_depth in xrange(5, -1, -1):
                     tup = tax.find_enriched_classification(self.cluster_lineage_map[id], self.lineages, lineage_depth)
-                    self.taxonomy_prediction_dict[id] = tup
+                    if None not in tup:
+                        sil = self.cluster_silhouette_map[id][-1]
+                        mean_sil = np.mean(self.cluster_silhouette_map[id][:-1])
+                        std_sil = np.std(self.cluster_silhouette_map[id][:-1])
+                        if sil < max(0, mean_sil - std_sil):
+                            continue
+                        tax_text = "{kind} ({pct}), sil:{sil} ({mean_sil} +/- {std_sil}), p={p} {taxon}"
+                        tax_text.format(kind=tup[0], pct=100 * tup[2], sil=sil, mean_sil=mean_sil, std_sil=std_sil, p=tup[1], taxon=self.phylogeny_names[min(4, lineage_depth)])
+                        self.taxonomy_prediction_dict[id] = (tup, tax_text)
+                        break
         return self.taxonomy_prediction_dict
 
     def get_virsorter_ids(self):

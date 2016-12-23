@@ -7,7 +7,6 @@ This script implements some basic function used in various places
 
 import os
 import sys
-import glob
 import numpy as np
 import logging
 

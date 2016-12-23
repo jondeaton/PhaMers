@@ -217,9 +217,10 @@ def find_enriched_classification(test_lineages, base_lineages, depth, verbose=Fa
     :return: A tuple of classification, chi2_contingency test results, and the percentage, or None, None,
     None if there is not enrichment for any taxa
     """
+    no_enrichment_return = (None, None, None)
     test_kinds = [test_lineages[i][depth] for i in xrange(len(test_lineages))]
     if len(test_lineages) == 0:
-        return None, None, None
+        return no_enrichment_return
     all_kinds = [base_lineages[i][depth] for i in xrange(len(base_lineages))]
     diversity = set(all_kinds)
     for kind in diversity:
@@ -229,6 +230,8 @@ def find_enriched_classification(test_lineages, base_lineages, depth, verbose=Fa
         test_total = len(test_kinds)
         test_ratio = float(test_count) / test_total
         base_ratio = float(base_count) / base_total
+        if test_ratio < 0.5:
+            continue
 
         x = np.array([[test_total - test_count, test_count], [base_total - base_count, base_count]])
         if x[1, 0] == 0:
@@ -237,11 +240,9 @@ def find_enriched_classification(test_lineages, base_lineages, depth, verbose=Fa
             result = stats.chi2_contingency(x)
 
         if result[1] <= 0.05 and test_ratio >= 0.5 and test_ratio > base_ratio:
-            if verbose:
-                logger.debug("%.1f%% %s p = %.2g" % (100*test_ratio, kind, result[1]))
             return kind, result, test_ratio
 
-    return None, None, None
+    return no_enrichment_return
 
 
 def deepest_classification(lineages):

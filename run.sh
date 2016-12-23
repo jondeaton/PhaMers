@@ -13,7 +13,7 @@ now=`date +%Y-%m-%d.%H.%M.%S`
 
 do_taxonomy=false
 do_cross_validation=false
-do_phamer=true
+do_phamer=false
 do_analysis=true
 
 run_bijah_road_side4=true
@@ -71,11 +71,11 @@ fi
 if $do_cross_validation
     then
         echo "====== Cross Validation ======"
-        phage_features=$data_directory"/reference_features/positive_features.csv"
+        phage_features=$data_directory"/reference_features/filtered_features.csv"
         bacteria_features=$data_directory"/reference_features/negative_features.csv"
         cuts_directory=$data_directory"/cut_features/cut_4mer_counts"
         phage_lineages=$data_directory"/phage_lineages.txt"
-        $python $cross_validation -pf $phage_features -nf $bacteria_features -out $cross_validation_out -N 20 --debug -l $phage_lineages --test_all --equalize_reference
+        $python $cross_validation -pf $phage_features -nf $bacteria_features -out $cross_validation_out -N 20 --debug -l $phage_lineages --equalize_reference
 fi
 
 # Phamer Scoring
