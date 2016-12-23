@@ -104,6 +104,7 @@ class results_analyzer(object):
         self.phage_features = None
 
         self.phamer_score_threshold = 0
+        self.strict = False
 
         self.lineage_dict = None
 
@@ -664,7 +665,7 @@ class results_analyzer(object):
         self.lineage_color_map = self.get_lineage_colors()
 
         logger.debug("Generating truth table...")
-        self.truth_table = self.get_virsorter_phamer_truth_table()
+        self.truth_table = self.get_virsorter_phamer_truth_table(strict=self.strict)
         self.virsroter_map = {phage.id: phage.category for phage in fileIO.read_virsorter_file(self.virsorter_summary)}
 
         logger.debug("Loading contig names and ids...")
