@@ -86,7 +86,7 @@ class tester(object):
 
         plt.figure(figsize=(9, 6))
         plt.plot(np.array([0] + self.cut_sizes) / 1000.0, [0] + list(self.aucs), 'b-o')
-        plt.grid(False)
+        plt.grid(True)
         plt.xlabel('Cut Size (kbp)')
         plt.ylabel('ROC AUC')
         plt.savefig(self.get_output_plot_filename())
