@@ -351,7 +351,7 @@ class results_analyzer(object):
                 record = record_dict[record_key]
                 id = id_parser.get_id(record.id)
                 if self.ids_to_diagram is not None and id not in self.ids_to_diagram:
-                    logger.info("Skipping: %s." % id)
+                    logger.info("Skipping id: %s" % id)
                     continue
                 logger.info("Diagramming: %s..." % id)
                 num_features = len(record.features)
@@ -368,17 +368,20 @@ class results_analyzer(object):
 
                 cluster_silhouettes = self.cluster_silhouette_map[id]
                 cluster_lineages = self.cluster_lineage_map[id]
+                ax.text(0, 0.7, "c", transform=ax.transAxes, weight='bold', fontname='Helvetica', fontsize=12)
 
                 # SILHOUETTE
                 ax = fig.add_subplot(gs[0, 0])
                 self.plot_cluster_silhouettes(cluster_silhouettes, ax=ax)
+                ax.text(-0.2, 1.1, "a", transform=ax.transAxes, weight='bold', fontname='Helvetica', fontsize=12)
 
                 # TAXONOMY BAR CHART
                 ax = fig.add_subplot(gs[0, 2])
                 self.plot_cluster_composition(cluster_lineages, ax=ax)
+                ax.text(-0.2, 1.1, "b", transform=ax.transAxes, weight='bold', fontname='Helvetica', fontsize=12)
 
                 # TEXT
-                plt.text(5.5, 0, self.get_contig_description_text(id, cluster_lineages=cluster_lineages), fontsize=6)
+                plt.text(5.5, 0, self.get_contig_description_text(id, cluster_lineages=cluster_lineages), fontsize=6, fontname='Helvetica')
 
                 # SAVE
                 file_name = self.get_diagram_filename(id)
@@ -753,6 +756,9 @@ class results_analyzer(object):
         ids = self.get_virsorter_ids()
         j = 1
         for id in ids:
+            if self.ids_to_diagram is not None and id not in self.ids_to_diagram:
+                    logger.info("Skipping id: %s" % id)
+                    continue
             logger.debug("ID: %s (%d of %d contigs)" % (id, j, len(ids)))
             j += 1
             contig_features = self.contig_features[self.contig_ids == id]
