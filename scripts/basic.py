@@ -43,14 +43,17 @@ def query_yes_no(prompt, default="yes"):
     no = set(["no", "n"])
     exit_responses = set(["exit", "quit", "stop"])
 
-    if default in yes:
+    if default is True or default in yes:
         yes.add("")
-    elif default in no:
+        options_text = "Y/n"
+    elif default is False or default in no:
         no.add("")
+        options_text = "y/N"
+    elif default is None:
+        options_text = "y/n"
     else:
         raise ValueError
 
-    options_text = ["y/N", "Y/n"][default in yes]
     stdout = "{prompt} [{options}] ".format(prompt=prompt, options=options_text) 
 
     response = "?"
