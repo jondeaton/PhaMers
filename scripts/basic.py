@@ -37,6 +37,35 @@ def generate_summary(args, line_start='', header=''):
     return str_rep
 
 
+def query_yes_no(prompt, default="yes"):
+    
+    yes = set(["yes", "y", "ye"])
+    no = set(["no", "n"])
+    exit_responses = set(["exit", "quit", "stop"])
+
+    if default in yes:
+        yes.add("")
+    elif default in no:
+        no.add("")
+    else:
+        raise ValueError
+
+    options_text = ["y/N", "Y/n"][default in yes]
+    stdout = "{prompt} [{options}] ".format(prompt=prompt, options=options_text) 
+
+    response = "?"
+    while True:
+        response = raw_input(stdout).lower()
+        if response in yes:
+            return True
+        elif response in no:
+            return False
+        elif response in exit_responses:
+            exit()
+        else:
+            print "Answer with yes/no/exit."
+
+
 def chop(array, chops):
     """
     This function is for separating the rows of a numpy array
