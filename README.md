@@ -1,6 +1,6 @@
 # PhaMers
 
-This repository contains code for running PhaMers, a phage identification tool. This main scripts in this repository are the following:
+This repository contains code for running PhaMers, a phage identification tool. PhaMers uses k-mer frequencies and basic machine learning algorithms to predict whether an unidentified DNA sequence is likely that of a phage of not. PhaMers also graphs DNA sequences and makes plots that facilitate understanding of metagenomic datasets.
 
 
 ## Dependencies
@@ -14,21 +14,34 @@ This repository contains code for running PhaMers, a phage identification tool. 
 	e. BioPython
 3. dna_features_viewer
 
-# Tools
+## Tools
 
+--> phamer.py - The main PhaMers scoring funcitonality is contained here. This script can take in files in fasta format, count k-mers, and score files against referece datasets. This script can also do t-SNE on the combined datasets.
 
-1) phamer.py - This script takes a fasta file as an input, and scores each sequence by it's comparing k-mer frequencies to those of reference phage and bacterial genomes. Positive scores indicate more phage-like whereas negative scores indicate a sequence is less phage-like. This is done using basic machine learning methods on k-mer frequency vectors. This script also performs t-SNE on the k-mer frequency vectors so that contigs can be visually inspected and compared to reference genomes.
+--> analysis.py - This script integrats and presents data from PhaMers, VirSorter, and IMG. This script makes t-SNE plots of metagenomics datasets, contig diagrams, performance plots, and text files that summarize results.
 
-2) analysis.py - This script takes scores generated from phamer.py, phage prediction data from VirSroter, and gene annotation files from the Integrated Microbial Genomes (IMG) annotation pipeline and outputs a bunch of files summaryzing the annotation results, phamer prediction results, and genbank files that can be used to visualize contig genetic features.
+--> feature_taxonomy.py - A class and functions that do t-SNE and cluster points to examine enrichmet for taxa.
 
-3) feature_taxonomy.py - This script examines the relationship between k-mer frequencies and phage taxonomic classification
+--> cross_validate.py - A class and functions that help to do N-Fold cross validation
 
-4) cross_validate.py - This script uses N-fold cross validaiton to quantify how well phage DNA sequences can be distinguished from non-phage genomes using the scoring method applied in phamer.py.
+--> kmer.py - Functions for counting k-mers.
 
+--> cluster.py - Cluster optimization analysis.
+
+--> learning.py - Some functions that implement several tools useful for machine learning and some wrapper functions for Scipy ML functions.
+
+--> distinguishable_colors.py - Some functions for gettting a set of colors that are able to be distinguished from eachoter visually.
+
+--> fileIO.py - Some functions for getting data in and out of files that score inputs and outputs for PhaMers
+
+--> id_parser.py - Functions that help parse headers of different formats to turn them in to IDs.
+
+--> img_parser.py - Functions for parsing IMG output files.
+
+--> basic.py - Some basic utility functions that might be useful in any program
 
 
 ### Example Graphs
-
 
 #### Contig Diagram
 
@@ -38,6 +51,8 @@ This repository contains code for running PhaMers, a phage identification tool. 
 #### t-SNE Plot
 
 ![tsne_comparison](https://cloud.githubusercontent.com/assets/15920014/21732968/04422922-d411-11e6-8a92-b7636b412361.png)
+
+
 
 
 
