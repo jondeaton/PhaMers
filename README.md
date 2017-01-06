@@ -2,6 +2,11 @@
 
 This repository contains code for running PhaMers, a phage identification tool. This main scripts in this repository are the following:
 
+![tsne_comparison](https://cloud.githubusercontent.com/assets/15920014/21732968/04422922-d411-11e6-8a92-b7636b412361.png)
+
+![contig_diagram_69](https://cloud.githubusercontent.com/assets/15920014/21732965/014ae34e-d411-11e6-9daf-685a9fa81ce5.png)
+
+
 
 ## Dependencies
 
