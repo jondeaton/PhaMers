@@ -2,11 +2,6 @@
 
 This repository contains code for running PhaMers, a phage identification tool. This main scripts in this repository are the following:
 
-![tsne_comparison](https://cloud.githubusercontent.com/assets/15920014/21732968/04422922-d411-11e6-8a92-b7636b412361.png)
-
-![contig_diagram_69](https://cloud.githubusercontent.com/assets/15920014/21732965/014ae34e-d411-11e6-9daf-685a9fa81ce5.png)
-
-
 
 ## Dependencies
 
@@ -29,3 +24,20 @@ This repository contains code for running PhaMers, a phage identification tool. 
 3) feature_taxonomy.py - This script examines the relationship between k-mer frequencies and phage taxonomic classification
 
 4) cross_validate.py - This script uses N-fold cross validaiton to quantify how well phage DNA sequences can be distinguished from non-phage genomes using the scoring method applied in phamer.py.
+
+
+
+### Example Graphs
+
+
+#### Contig Diagram
+
+![contig_diagram_69](https://cloud.githubusercontent.com/assets/15920014/21732965/014ae34e-d411-11e6-9daf-685a9fa81ce5.png)
+
+
+#### t-SNE Plot
+
+![tsne_comparison](https://cloud.githubusercontent.com/assets/15920014/21732968/04422922-d411-11e6-8a92-b7636b412361.png)
+
+
+
