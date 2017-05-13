@@ -21,14 +21,15 @@ run_lower_geyser_basin=true
 run_sulfolobus_or_acidianus=false
 
 # Locations
+REPO="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 home=~
 python=$home"/anaconda2/bin/python"
-phamer_directory=$home"/Dropbox/Documents/research/PhaMers"
+phamer_directory=$REPO
 script_directory=$phamer_directory"/scripts"
 data_directory=$home"/Documents/research/phamer_data"
 datasets_directory=$home"/Dropbox/Documents/research/datasets"
 
-# Scripts
+# Scripts (All relative to the PhaMers repository)
 phage_taxonomy=$script_directory"/feature_taxonomy.py"
 cross_validation=$script_directory"/cross_validate.py"
 phamer=$script_directory"/phamer.py"
