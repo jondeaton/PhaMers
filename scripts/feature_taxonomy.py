@@ -19,7 +19,6 @@ except KeyError:
     matplotlib.use('Agg')
 warnings.simplefilter('ignore', UserWarning)
 import matplotlib.pyplot as plt
-import pylab
 
 import kmer
 import basic
@@ -29,16 +28,18 @@ import taxonomy as tax
 import distinguishable_colors
 from sklearn.decomposition import PCA
 
-__version__ = 1.0
-__author__ = "Jonathan Deaton (jdeaton@stanford.edu)"
-__license__ = "No license"
+# This is so that the PDF images created have editable text (For Adobe Illustrator)
+matplotlib.rcParams['pdf.fonttype'] = 42
 
 logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-matplotlib.rcParams['pdf.fonttype'] = 42
+__version__ = 1.0
+__author__ = "Jonathan Deaton (jdeaton@stanford.edu)"
+__license__ = "No license"
+
 
 class plot_maker(object):
     
@@ -55,7 +56,12 @@ class plot_maker(object):
         self.lineage_dict = None
 
         self.do_tsne = True
-        self.perplexity = 35
+        self.perplexity = 20 # default is 30
+        self.early_exaggeration = 1.0 # default is 4.0
+        self.tsne_init = "pca" #default is random
+        self.tsne_learning_rate = 2000 # default is 1000
+        self.tsne_seed = 10
+        s = self.dot_size = 5
 
         self.kmeans = False
         self.dbscan = True
@@ -136,9 +142,9 @@ class plot_maker(object):
             if self.PCA_preprocess:
                 logger.info("Pre-processing with PCA...")
                 pca_data = PCA(n_components=self.pca_preprocess_red).fit_transform(self.features)
-                self.tsne_data = TSNE(perplexity=self.perplexity, verbose=True).fit_transform(pca_data)
+                self.tsne_data = TSNE(perplexity=self.perplexity, verbose=True, random_state=self.tsne_seed, init=self.tsne_init, early_exaggeration=self.early_exaggeration, learning_rate=self.tsne_learning_rate).fit_transform(pca_data)
             else:
-                self.tsne_data = TSNE(perplexity=self.perplexity, verbose=True).fit_transform(self.features)
+                self.tsne_data = TSNE(perplexity=self.perplexity, verbose=True, random_state=self.tsne_seed, init=self.tsne_init, early_exaggeration=self.early_exaggeration, learning_rate=self.tsne_learning_rate).fit_transform(self.features)
             logger.info("t-SNE complete.")
             self.tsne_file = self.get_tsne_filename()
             fileIO.save_tsne_data(self.tsne_file, self.tsne_data, self.id_list)
@@ -221,7 +227,7 @@ class plot_maker(object):
             label = ['unassigned', '%d' % cluster][cluster >= 0]
             color = colors[cluster]
             marker = self.markers[cluster % len(self.markers)]
-            plt.scatter(cluster_points[:, 0], cluster_points[:, 1], c=color,  edgecolor=color, marker=marker, label=label, s=3)
+            plt.scatter(cluster_points[:, 0], cluster_points[:, 1], c=color,  edgecolor=color, marker=marker, label=label, s=self.dot_size)
 
         ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
         plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), prop={'size': 6}, title="Legend", fontsize=7, ncol=2)

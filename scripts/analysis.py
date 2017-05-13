@@ -36,6 +36,8 @@ import distinguishable_colors
 import learning
 import basic
 
+# This is so that the PDF images created have editable text (For Adobe Illustrator)
+matplotlib.rcParams['pdf.fonttype'] = 42
 pd.options.mode.chained_assignment = None
 
 __version__ = 1.0
@@ -877,7 +879,7 @@ class results_analyzer(object):
         """
         if not self.diagram_output_directory:
             self.diagram_output_directory = self.get_diagram_output_directory()
-        return os.path.join(self.diagram_output_directory, "contig_diagram_{id}.svg".format(id=id))
+        return os.path.join(self.diagram_output_directory, "contig_diagram_{id}.pdf".format(id=id))
 
     def get_genbank_output_directory(self):
         """
@@ -901,21 +903,21 @@ class results_analyzer(object):
         """
         if not self.pie_charts_output:
             self.pie_charts_output = self.get_pie_charts_output_directory()
-        return os.path.join(self.pie_charts_output, 'close_phage_contig_{id}.svg'.format(id=id))
+        return os.path.join(self.pie_charts_output, 'close_phage_contig_{id}.pdf'.format(id=id))
 
     def get_tsne_figname(self):
         """
         This function returns a filename for a t-SNE image
         :return:
         """
-        return os.path.join(self.output_directory, "tsne_comparison.svg")
+        return os.path.join(self.output_directory, "tsne_comparison.pdf")
 
     def get_boxplot_filename(self):
         """
         This function returns a file path for a boxplot
         :return:
         """
-        return os.path.join(self.output_directory, "category_boxplot.svg")
+        return os.path.join(self.output_directory, "category_boxplot.pdf")
 
     def get_prediction_metrics_filename(self):
         """
@@ -949,7 +951,7 @@ class results_analyzer(object):
         This function makes a filename for the roc curve comparing performance
         :return: A path to file to save an ROC curve
         """
-        return os.path.join(self.output_directory, 'roc.svg')
+        return os.path.join(self.output_directory, 'roc.pdf')
 
     def get_output_fasta_filename(self):
         return os.path.join(self.output_directory, "putative_phage.fasta")

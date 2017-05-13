@@ -23,6 +23,9 @@ except KeyError:
 import matplotlib.pyplot as plt
 from scipy import stats
 
+# This is so that the PDF images created have editable text (For Adobe Illustrator)
+matplotlib.rcParams['pdf.fonttype'] = 42
+
 __version__ = 1.0
 __author__ = "Jonathan Deaton (jdeaton@stanford.edu)"
 __license__ = "No license"
@@ -220,13 +223,13 @@ class cross_validator(object):
 
     # filename makers
     def get_score_distribution_filename(self):
-        return os.path.join(self.output_directory, 'score_distributions.svg')
+        return os.path.join(self.output_directory, 'score_distributions.pdf')
 
     def get_roc_curve_filename(self):
-        return os.path.join(self.output_directory, "roc.svg")
+        return os.path.join(self.output_directory, "roc.pdf")
 
     def get_combined_roc_curve_filename(self):
-        return os.path.join(self.output_directory, "all_algorithms_roc.svg")
+        return os.path.join(self.output_directory, "all_algorithms_roc.pdf")
 
     def get_metric_filename(self):
         return os.path.join(self.output_directory, "metrics.txt")

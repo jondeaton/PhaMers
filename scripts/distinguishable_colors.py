@@ -20,6 +20,9 @@ import numpy as np
 import colorsys
 import random
 
+# This is so that we get the same colors every time
+random.seed(11)
+
 __version__ = 1.0
 __author__ = "Jonathan Deaton (jdeaton@stanford.edu)"
 __license__ = "No license"

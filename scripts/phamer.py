@@ -28,6 +28,9 @@ import learning
 import basic
 import fileIO
 
+# This is so that the PDF images created have editable text (For Adobe Illustrator)
+matplotlib.rcParams['pdf.fonttype'] = 42
+
 __version__ = 1.0
 __author__ = "Jonathan Deaton (jdeaton@stanford.edu)"
 __license__ = "No license"
@@ -437,7 +440,7 @@ class phamer_scorer(object):
 
     def get_plot_output_filename(self):
 
-        return os.path.join(self.output_directory, "tsne_plot_phamer.svg")
+        return os.path.join(self.output_directory, "tsne_plot_phamer.pdf")
 
 def score_points(scoring_data, positive_training_data, negative_training_data, method=None):
     """
