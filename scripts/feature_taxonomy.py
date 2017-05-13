@@ -97,11 +97,19 @@ class plot_maker(object):
 
     def load_data(self):
         """
-        This function loads all the data necessary for plotting into memory
+        This function loads all the data necessary for plotting into memory.
+        This function will also make the necessary directories for where the outputs
+        shoudl be placed
         :return: None
         """
+
         if self.output_directory and not os.path.isdir(self.output_directory):
-            os.mkdir(self.output_directory)
+            try:
+                os.mkdir(self.output_directory)
+            except:
+                logger.error("Could not create: %s" % self.output_directory)
+                logger.error("Resolve this by creating this directory yourself and re-running")
+                exit(1)
 
         if self.features_file and os.path.exists(self.features_file):
             # Loading features
