@@ -11,13 +11,13 @@
 scratch=$LOCAL_SATA
 now=`date +%Y-%m-%d.%H.%M.%S`
 
-do_taxonomy=false
+do_taxonomy=true
 do_cross_validation=false
 do_phamer=false
-do_analysis=true
+do_analysis=false
 
-run_bijah_road_side4=true
-run_lower_geyser_basin=false
+run_bijah_road_side4=false
+run_lower_geyser_basin=true
 run_sulfolobus_or_acidianus=false
 
 # Locations
@@ -89,6 +89,6 @@ fi
 if $do_analysis
     then
         echo "====== Analysis ======"
-        $python $analysis -in $input_directory --data_directory $data_directory --debug
+        $python $analysis -in $input_directory --data_directory $data_directory --debug --diagram_ids 5193 
         #$python $analysis -in $input_directory --data_directory $data_directory --debug --diagram_ids 1
 fi

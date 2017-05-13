@@ -368,7 +368,7 @@ class results_analyzer(object):
 
                 cluster_silhouettes = self.cluster_silhouette_map[id]
                 cluster_lineages = self.cluster_lineage_map[id]
-                ax.text(0, 0.7, "c", transform=ax.transAxes, weight='bold', fontname='Helvetica', fontsize=12)
+                ax.text(0, 0.85, "c", transform=ax.transAxes, weight='bold', fontname='Helvetica', fontsize=12)
 
                 # SILHOUETTE
                 ax = fig.add_subplot(gs[0, 0])

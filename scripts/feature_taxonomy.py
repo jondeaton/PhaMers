@@ -37,6 +37,9 @@ logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(messa
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+
+matplotlib.rcParams['pdf.fonttype'] = 42
+
 class plot_maker(object):
     
     def __init__(self):
@@ -54,9 +57,9 @@ class plot_maker(object):
         self.do_tsne = True
         self.perplexity = 35
 
-        self.kmeans = True
-        self.dbscan = False
-        self.cluster_on_tsne = False
+        self.kmeans = False
+        self.dbscan = True
+        self.cluster_on_tsne = True 
         self.k_clusters = 40
         self.min_samples = 10
         self.eps = [0.014, 1.5][self.cluster_on_tsne]
@@ -346,7 +349,7 @@ class plot_maker(object):
         :return:
         """
         lineage_name = self.titles[lineage_depth].lower().split()[0]
-        file_name = 'cluster_homology_{lineage_name}.svg'.format(lineage_name=lineage_name)
+        file_name = 'cluster_homology_{lineage_name}.pdf'.format(lineage_name=lineage_name)
         file_name = os.path.join(self.output_directory, file_name)
         return file_name
 
@@ -357,7 +360,7 @@ class plot_maker(object):
         :return:
         """
         lineage_name = self.titles[lineage_depth].lower().split()[0]
-        file_name = 'phage_pie_{lineage_name}.svg'.format(lineage_name=lineage_name)
+        file_name = 'phage_pie_{lineage_name}.pdf'.format(lineage_name=lineage_name)
         file_name = os.path.join(self.output_directory, file_name)
         return file_name
 
@@ -370,7 +373,7 @@ class plot_maker(object):
 
     def get_tsne_plot_filename(self):
 
-        return os.path.join(self.output_directory, "tsne_plot.svg")
+        return os.path.join(self.output_directory, "tsne_plot.pdf")
 
     def get_cluster_taxonomy_filename(self):
         """
