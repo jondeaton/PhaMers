@@ -97,6 +97,8 @@ class results_analyzer(object):
         self.phamer_summary = None
         self.phage_features_file = None
         self.tsne_file = None
+        self.fasta_file = None
+        self.features_file = None
 
         self.output_directory = None
         self.pie_charts_output = None
@@ -125,13 +127,15 @@ class results_analyzer(object):
         self.have_been_diagramed = []
         self.pie_plot_figsize = (18, 8)
         self.tsne_figsize = (10, 8)
-        self.label_contigs_on_tsne = False
+        self.label_contigs_on_tsne = True
+        self.ids_to_label = ['15', '2115', '317', '4273', '5193', '5519', '6299', '873'] # Only these will be labeled on t-SNE (empty = label all contigs)
         self.phage_color = 'blue'
         self.bacteria_color = 'black'
         self.tp_color = 'yellow'
         self.fp_color = 'magenta'
         self.fn_color = 'red'
         self.tn_color = 'green'
+        self.dot_size = 5
 
     # Plotting Methods
     def make_all_plots(self):
@@ -186,23 +190,23 @@ class results_analyzer(object):
             fig, ax = plt.subplots(1, figsize=self.tsne_figsize)
         box = ax.get_position()
         ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-        ax.scatter(bacteria_tsne[:, 0], bacteria_tsne[:, 1], s=5, c=self.bacteria_color, edgecolor=self.bacteria_color, alpha=alpha, label='Bacteria (%s)' % bacteria_tsne.shape[0])
-        ax.scatter(phage_tsne[:, 0], phage_tsne[:, 1], s=0.5, c=self.phage_color, edgecolor=self.phage_color, alpha=alpha, label='Phage (%d)' % self.num_reference_phage)
+        ax.scatter(bacteria_tsne[:, 0], bacteria_tsne[:, 1], s=self.dot_size, c=self.bacteria_color, edgecolor=self.bacteria_color, alpha=alpha, label='Reference Bacteria (%s)' % bacteria_tsne.shape[0])
+        ax.scatter(phage_tsne[:, 0], phage_tsne[:, 1], s=self.dot_size, c=self.phage_color, edgecolor=self.phage_color, alpha=alpha, label='Reference Phage (%d)' % self.num_reference_phage)
 
         if TN_points.shape[0]:
-            ax.scatter(TN_points[:, 0], TN_points[:, 1], s=3, c=self.tn_color, edgecolor=self.tn_color, alpha=alpha,label='True Negatives (%d)' % len(TN_points))
+            ax.scatter(TN_points[:, 0], TN_points[:, 1], s=self.dot_size, c=self.tn_color, edgecolor=self.tn_color, alpha=alpha,label='Novel Bacteria (%d)' % len(TN_points))
         if FP_points.shape[0]:
-            ax.scatter(FP_points[:, 0], FP_points[:, 1], s=3, c=self.fp_color, edgecolor=self.fp_color, alpha=alpha,label='False Positives (%d)' % len(FP_points))
+            ax.scatter(FP_points[:, 0], FP_points[:, 1], s=self.dot_size, c=self.fp_color, edgecolor=self.fp_color, alpha=alpha,label='PhaMers Only (%d)' % len(FP_points))
         if FN_points.shape[0]:
-            ax.scatter(FN_points[:, 0], FN_points[:, 1], s=15, c=self.fn_color, edgecolor='black', alpha=alpha, label='False Negatives (%d)' % len(FN_points))
+            ax.scatter(FN_points[:, 0], FN_points[:, 1], s=2*self.dot_size, c=self.fn_color, edgecolor='black', alpha=alpha, label='VirSorter Only (%d)' % len(FN_points))
         if TP_points.shape[0]:
-            ax.scatter(TP_points[:, 0], TP_points[:, 1], s=15, c=self.tp_color, edgecolor='black', alpha=alpha, label='True Positives (%d)' % len(TP_points))
+            ax.scatter(TP_points[:, 0], TP_points[:, 1], s=2*self.dot_size, c=self.tp_color, edgecolor='black', alpha=alpha, label='PhaMers and VirSorter (%d)' % len(TP_points))
 
         for id in contig_tsne_ids:
             score = self.phamer_dict[id]
             if id in true_positives or id in false_negatives or score > 1:
                 x, y = tsne_data[ids.index(id)]
-                if self.label_contigs_on_tsne:
+                if self.label_contigs_on_tsne and (not self.ids_to_label or id in self.ids_to_label):
                     ax.text(x, y, str(id), fontsize=5)
 
         ax.legend(fontsize=8, loc='center left', bbox_to_anchor=(0.96, 0.5), title="Legend", fancybox=True)
@@ -649,7 +653,7 @@ class results_analyzer(object):
             logger.warning("No fasta file...")
             self.id_header_map = None
 
-        logger.debug("Loading features...")
+        logger.debug("Loading features (%s)..." % os.path.basename(self.features_file))
         self.contig_ids, self.contig_features = fileIO.read_feature_file(self.features_file, normalize=True)
         logger.debug("Loading VirSorter results...")
         self.contig_category_map = self.get_contig_category_map()
@@ -805,6 +809,7 @@ class results_analyzer(object):
         :return: None.
         """
         if self.input_directory and os.path.isdir(self.input_directory):
+
             fasta_files = basic.search_for_file(self.input_directory, end=".fasta")
             if len(fasta_files) == 1:
                 self.fasta_file = fasta_files[0]
@@ -827,6 +832,8 @@ class results_analyzer(object):
             features_files = basic.search_for_file(self.input_directory, end='.csv')
             if len(features_files) == 1:
                 self.features_file = features_files[0]
+            else:
+                logger.error("Count not find features file in %d" % self.input_directory)
 
             virsorter_directories = basic.search_for_file(self.input_directory, start='VirSorter')
             if len(virsorter_directories) == 1:
@@ -836,6 +843,10 @@ class results_analyzer(object):
             img_directories = basic.search_for_file(self.input_directory, start='IMG_')
             if len(img_directories) == 1:
                 self.img_directory = img_directories[0]
+
+        else:
+            logger.error("Could not find directory: %s" % self.input_directory)
+            exit()
 
     def find_data_files(self):
         """
@@ -910,7 +921,7 @@ class results_analyzer(object):
         This function returns a filename for a t-SNE image
         :return:
         """
-        return os.path.join(self.output_directory, "tsne_comparison.pdf")
+        return os.path.join(self.output_directory, "tsne_comparison.svg")
 
     def get_boxplot_filename(self):
         """

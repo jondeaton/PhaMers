@@ -61,7 +61,7 @@ class plot_maker(object):
         self.tsne_init = "pca" #default is random
         self.tsne_learning_rate = 2000 # default is 1000
         self.tsne_seed = 10
-        s = self.dot_size = 5
+        self.dot_size = 5
 
         self.kmeans = False
         self.dbscan = True

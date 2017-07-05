@@ -18,6 +18,9 @@ import phamer
 import cross_validate
 import fileIO
 
+# This is so that the PDF images created have editable text (For Adobe Illustrator)
+matplotlib.rcParams['pdf.fonttype'] = 42
+
 __version__ = 1.0
 __author__ = "Jonathan Deaton (jdeaton@stanford.edu)"
 __license__ = "No license"
@@ -59,7 +62,7 @@ class tester(object):
         This function generates a name for the output plot
         :return:
         """
-        return os.path.join(self.output_directory, "cut_response.svg")
+        return os.path.join(self.output_directory, "cut_response.pdf")
 
     def test_cut_response(self):
         '''

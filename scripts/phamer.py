@@ -89,7 +89,13 @@ class phamer_scorer(object):
         self.min_samples = [self.positive_min_samples, self.negative_min_samples]
 
         self.use_tsne_python = False
-        self.tsne_perplexity = 30.0
+        self.tsne_perplexity = 30.0 # default is 30
+        self.early_exaggeration = 1.0  # default is 4.0
+        self.tsne_init = "pca"  # default is random
+        self.tsne_learning_rate = 2000  # default is 1000
+        self.tsne_seed = 10
+        self.dot_size = 5
+
         self.pca_preprocess = True
         self.pca_preprocess_red = 50
         self.tsne_figsize = (30, 24)
@@ -349,9 +355,9 @@ class phamer_scorer(object):
             # This is to reduce memory requirement
             logger.info("Pre-processing with PCA...")
             pca_data = PCA(n_components=self.pca_preprocess_red).fit_transform(all_data)
-            self.tsne_data = TSNE(perplexity=self.tsne_perplexity, verbose=True).fit_transform(pca_data)
+            self.tsne_data = TSNE(perplexity=self.tsne_perplexity, early_exaggeration=self.early_exaggeration, random_state=self.tsne_seed, init=self.tsne_init, learning_rate=self.tsne_learning_rate, verbose=True).fit_transform(pca_data)
         else:
-            self.tsne_data = TSNE(perplexity=self.tsne_perplexity, verbose=True).fit_transform(all_data)
+            self.tsne_data = TSNE(perplexity=self.tsne_perplexity, early_exaggeration=self.early_exaggeration, random_state=self.tsne_seed, init=self.tsne_init, learning_rate=self.tsne_learning_rate, verbose=True).fit_transform(all_data)
         logger.info("t-SNE complete.")
 
         logger.debug("Rearranging data...")
@@ -445,7 +451,7 @@ class phamer_scorer(object):
 def score_points(scoring_data, positive_training_data, negative_training_data, method=None):
     """
     This is a function that will score data in the same way that the phamer_scoring object would but this
-    works as a function with arguments rathern than as the method of an object. This is used in the cross validation
+    works as a function with arguments rather than as the method of an object. This is used in the cross validation
     script so that testing can be done with the same exact method of
     :param scoring_data: Data to score in a numpy array (rows = items)
     :param positive_training_data: Positive data in a numpy array

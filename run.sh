@@ -11,8 +11,8 @@
 scratch=$LOCAL_SATA
 now=`date +%Y-%m-%d.%H.%M.%S`
 
-do_taxonomy=true
-do_cross_validation=false
+do_taxonomy=false
+do_cross_validation=true
 do_phamer=false
 do_analysis=false
 
@@ -21,13 +21,13 @@ run_lower_geyser_basin=true
 run_sulfolobus_or_acidianus=false
 
 # Locations
-REPO="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-home=~
+REPO="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )" # discovers the directory that this script is sitting in
+home=~ # meh
 python=$home"/anaconda2/bin/python"
 phamer_directory=$REPO
 script_directory=$phamer_directory"/scripts"
 data_directory=$home"/Documents/research/phamer_data"
-datasets_directory=$home"/Dropbox/Documents/research/datasets"
+datasets_directory=$home"/Dropbox/Documents/research/phage_paper/datasets"
 
 # Scripts (All relative to the PhaMers repository)
 phage_taxonomy=$script_directory"/feature_taxonomy.py"
@@ -76,7 +76,8 @@ if $do_cross_validation
         bacteria_features=$data_directory"/reference_features/negative_features.csv"
         cuts_directory=$data_directory"/cut_features/cut_4mer_counts"
         phage_lineages=$data_directory"/phage_lineages.txt"
-        $python $cross_validation -pf $phage_features -nf $bacteria_features -out $cross_validation_out -N 20 --debug -l $phage_lineages --equalize_reference
+        method="kmeans"
+        $python $cross_validation -pf $phage_features -nf $bacteria_features -out $cross_validation_out -N 20 --debug -l $phage_lineages --method $method
 fi
 
 # Phamer Scoring
@@ -90,6 +91,6 @@ fi
 if $do_analysis
     then
         echo "====== Analysis ======"
-        $python $analysis -in $input_directory --data_directory $data_directory --debug --diagram_ids 5193 
-        #$python $analysis -in $input_directory --data_directory $data_directory --debug --diagram_ids 1
+        #$python $analysis -in $input_directory --data_directory $data_directory --debug --diagram_ids 5193
+        $python $analysis -in $input_directory --data_directory $data_directory --debug --diagram_ids 1
 fi

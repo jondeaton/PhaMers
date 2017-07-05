@@ -17,6 +17,9 @@ from sklearn.neighbors import KNeighborsClassifier
 import logging
 import pandas as pd
 
+# Deterministic k-means clustering
+kmeans_seed = 10
+
 __version__ = 1.0
 __author__ = "Jonathan Deaton (jdeaton@stanford.edu)"
 __license__ = "No license"
@@ -24,8 +27,6 @@ __license__ = "No license"
 logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(message)s')
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-
-
 
 def cluster_deviations(data, assignment):
     """
@@ -134,7 +135,7 @@ def kmeans(data, k, verbose=False, sort_by_size=False):
     :param k: The number of clusters
     :return: A numpy array with elements corresponsing to the cluster assignment of each point
     """
-    assignment = KMeans(n_clusters=k).fit(data).labels_
+    assignment = KMeans(n_clusters=k, random_state=kmeans_seed).fit(data).labels_
     if type(assignment) != np.ndarray:
         assignment = np.array(assignment)
     if verbose:
