@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2.7
 '''
 This script is for transforming an array of k-mer count vectors
 '''

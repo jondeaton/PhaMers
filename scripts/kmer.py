@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2.7
 """
 kmers.py
 This script is a python module for counting k-mers in biological sequence data.
