@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2.7
 """
 This script is used to parse files from JGI's Integrated Microbial Genomes (IMG) gene annotation pipeline
 """

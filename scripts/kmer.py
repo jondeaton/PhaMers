@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2.7
 """
 kmers.py
 This script is a python module for counting k-mers in biological sequence data.
@@ -16,6 +16,7 @@ import random
 from Bio import SeqIO
 import logging
 import fileIO
+import ctypes
 
 __version__ = 1.0
 __author__ = "Jonathan Deaton (jdeaton@stanford.edu)"
@@ -29,6 +30,19 @@ DNA = 'ATGC'
 RNA = 'AUGC'
 protein = 'RHKDESTNQCUGPAVILMFYW'
 
+def initkmer():
+    pass
+
+try:
+    kmer_module_file = "kmers.so"
+    kmer_module = ctypes.CDLL(kmer_module_file)
+    kmer_module_ready = True
+except:
+    logger.warning(
+        "Couldn't find K-Mer counting module \"%s\". Using Python to count K-Mers. Run \"make\" in PhaMers/src." % kmer_module_file)
+    kmer_module_ready = False
+
+
 def count_string(sequence, kmer_length, symbols=DNA, normalize=False):
     """
     k-mer counting function
@@ -39,7 +53,16 @@ def count_string(sequence, kmer_length, symbols=DNA, normalize=False):
     :param verbose: Verbose output
     :return: A numpy array with the k-mer counts as integers or floats
     """
-    if len(symbols) < 10:
+
+    num_symbols = len(symbols)
+
+    if kmer_module_ready:
+        # Counting k-mers using a C++ module (~13x speedup)
+        kmer_count = np.zeros(pow(num_symbols, kmer_length), dtype=int)
+        arr = ctypes.c_void_p(kmer_count.ctypes.data)
+        kmer_module.countKMers(sequence, kmer_length, symbols, arr)
+
+    elif num_symbols < 10:
         # Integer replacement method (may only be used for kmer_length < 10)
         sequence = sequence_to_integers(sequence, symbols)
         num_symbols = len(symbols)
@@ -50,7 +73,6 @@ def count_string(sequence, kmer_length, symbols=DNA, normalize=False):
                 kmer_count[int(integer_kmer, num_symbols)] += 1
     else:
         # Mathematical method (for any k)
-        num_symbols = len(symbols)
         lookup = {char: symbols.index(char) for char in symbols}
         lookup.update({char.lower(): symbols.index(char) for char in symbols})
         kmer_count = np.zeros((1, pow(num_symbols, kmer_length)), dtype=(int, float)[normalize])
