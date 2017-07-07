@@ -13,6 +13,6 @@ default: $(TARGETS)
 kmers.so:
 	$(CXX) $(CPPFLAGS) $(LDFLAGS)  -Wl,-install_name,kmers.so -o $@ -fPIC $(SOURCES)
 
-.PHONY: kmers.so clean
+.PHONY: clean
 clean:
 	@rm -f $(TARGETS)
