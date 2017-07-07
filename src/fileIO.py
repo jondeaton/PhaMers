@@ -24,7 +24,6 @@ logging.basicConfig(format='[%(asctime)s][%(levelname)s][%(funcName)s] - %(messa
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-
 def read_fasta(fasta_file):
     """
     Function for reading the contents of a fasta file

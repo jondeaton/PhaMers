@@ -4,22 +4,30 @@ using namespace std;
 
 // Allows for this to be called from Python with CTypes
 extern "C" {
-	int countKMers(char* sequence, size_t kmerLength, char* symbols, long* kmerCount);
+	int countKMers(const char* sequence, const size_t kmerLength, const char* symbols, long* kmerCount);
 }
 
 // Function Declarations
-void populateMap(map<char, size_t>& symbolIndexMap, char* symbols);
-ssize_t calculateIndex(char* kmer, size_t kmerLength, map<char, size_t>& symbolIndexMap, size_t numSymbols, ssize_t index);
+void populateMap(map<char, size_t>& symbolIndexMap, const char* symbols);
+ssize_t calculateIndex(const char* kmer, const size_t kmerLength, map<char, size_t>& symbolIndexMap, const int* significances, const size_t numSymbols, ssize_t index);
 int ipow(int base, int exp);
 
-int countKMers(char* sequence, size_t kmerLength, char* symbols, long* kmerCount) {
+int countKMers(const char* sequence, const size_t kmerLength, const char* symbols, long* kmerCount) {
+	if (kmerLength == 0) return 0;
 
 	size_t sequenceLength = strlen(sequence);
+	if (sequenceLength < kmerLength) return 0;
+
     size_t numSymbols = strlen(symbols);
+    if (numSymbols == 0) return 0;
 
 	// Stores mapping from symbol to lexicographic index
 	map<char, size_t> symbolIndexMap;
 	populateMap(symbolIndexMap, symbols);
+
+	// Stores the lexocographic significance of each letter in a kmer
+	int* significances = new int[kmerLength + 1];
+	for (int i = 0; i <= kmerLength; i++) significances[i] = ipow(numSymbols, i);
     
 	// index is the lexicographic index in the kmerCount array corresponding
 	// to the kmer under the sliding window. -1 indicates that there is no index
@@ -27,17 +35,16 @@ int countKMers(char* sequence, size_t kmerLength, char* symbols, long* kmerCount
 	ssize_t index = -1;
 
 	// Slide a window of size kmerLength along the sequence
-	size_t maximumIndex = sequenceLength - kmerLength + 1;
-	for (size_t i = 0; i < maximumIndex; i++) {
-		char* kmer = sequence + i; // slide the window
-		index = calculateIndex(kmer, kmerLength, symbolIndexMap, numSymbols, index);
-		if (index == -1) continue; // bad character encountered
-		kmerCount[index] += 1; // sote that we encountered this kmer
+	size_t maximumIndex = sequenceLength - kmerLength;
+	for (size_t i = 0; i <= maximumIndex; i++) {
+		const char* kmer = sequence + i; // slide the window
+		index = calculateIndex(kmer, kmerLength, symbolIndexMap, significances, numSymbols, index);
+		if (index != -1) kmerCount[index] += 1;
 	}
 	return 0;
 }
 
-void populateMap(map<char, size_t>& symbolIndexMap, char* symbols) {
+void populateMap(map<char, size_t>& symbolIndexMap, const char* symbols) {
 	// lookup = {char: symbols.index(char) for char in symbols}
 	// lookup.update({char.lower(): symbols.index(char) for char in symbols})
 	size_t numSymbols = strlen(symbols);
@@ -47,31 +54,29 @@ void populateMap(map<char, size_t>& symbolIndexMap, char* symbols) {
     }
 }
 
-ssize_t calculateIndex(char* kmer, size_t kmerLength, map<char, size_t>& symbolIndexMap, size_t numSymbols, ssize_t index) {
+ssize_t calculateIndex(const char* kmer, const size_t kmerLength, map<char, size_t>& symbolIndexMap, const int* significances, const size_t numSymbols, ssize_t index) {
 	if (index == -1) {
 		// Must recalculate
         // index = sum([lookup[kmer[n]] * pow(num_symbols, kmer_length - n - 1) for n in xrange(kmer_length)])
 		index = 0;
         for (size_t j = 0; j < kmerLength; j++) {
 			char letter = kmer[j];
-			if (symbolIndexMap.find(letter) == symbolIndexMap.end()) return -1;
-
-			size_t significance = ipow(numSymbols, kmerLength - j - 1);
-			index += symbolIndexMap[kmer[j]] * significance;
+			if (symbolIndexMap.find(letter) == symbolIndexMap.end()) return -1; // invalid next symbol
+			index += symbolIndexMap[kmer[j]] * significances[kmerLength - j - 1];
 		}
 	} else {
 		// May use previous window's index to make a quicker calculation
 		// index = (index * num_symbols) % pow(num_symbols, kmer_length) + lookup[sequence[i + kmer_length - 1]]
 		char letter = kmer[kmerLength - 1];
 		if (symbolIndexMap.find(letter) == symbolIndexMap.end()) return -1;
-		index = (index * numSymbols) % ipow(numSymbols, kmerLength) + symbolIndexMap[letter];
+		index = (index * numSymbols) % significances[kmerLength] + symbolIndexMap[letter];
 	}
 	return index;
 }
 
 // Integer exponentiation
 int ipow(int base, int exp) {
-    if (base == 2) return (1 << exp);
+	if (base == 0 || base == 1) return base;
 
     int result = 1;
     while (exp) {
