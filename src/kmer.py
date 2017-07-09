@@ -31,13 +31,18 @@ DNA = 'ATGC'
 RNA = 'AUGC'
 protein = 'RHKDESTNQCUGPAVILMFYW'
 
+kmer_module_file = "kmers.so"
 try:
-    kmer_module_file = "kmers.so"
     kmer_module = ctypes.CDLL(kmer_module_file)
     kmer_module_ready = True
 except:
-    logger.warning("K-Mer counting module not found. Run \"make\" in PhaMers/src." % kmer_module_file)
-    kmer_module_ready = False
+    try:
+        os.system("make")
+        kmer_module = ctypes.CDLL(kmer_module_file)
+        kmer_module_ready = True
+    except:
+        logger.warning("K-Mer counting module not found. Run \"make\" in PhaMers/src." % kmer_module_file)
+        kmer_module_ready = False
 
 
 def count_string(sequence, kmer_length, symbols=DNA, normalize=False):
