@@ -36,7 +36,7 @@ try:
     kmer_module = ctypes.CDLL(kmer_module_file)
     kmer_module_ready = True
 except:
-    logger.warning("K-Mer counting module not found. Run \"make\" in PhaMers/src." % kmer_module_file)
+    logger.warning("K-Mer counting module not found. Run \"make\" in PhaMers/src.")
     kmer_module_ready = False
 
 
