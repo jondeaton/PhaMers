@@ -5,14 +5,14 @@ This repository contains code for running PhaMers, a phage identification tool. 
 ## Dependencies
 
 1. Python 2.7
-2. C++
-2. Anaconda2
-	a. Numpy
-	b. Pandas
-	c. MatPlotLib
-	d. SciPy
-	e. BioPython
-3. dna_features_viewer
+2. C++11
+3. Anaconda2  
+	a. Numpy  
+	b. Pandas  
+	c. MatPlotLib  
+	d. SciPy  
+	e. BioPython  
+4. dna_features_viewer
 
 ## Tools
 
