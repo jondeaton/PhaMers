@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <map>
 using namespace std;
 
@@ -27,7 +28,7 @@ int countKMers(const char* sequence, const size_t kmerLength, const char* symbol
 
 	// Stores the lexocographic significance of each letter in a kmer
 	int* significances = new int[kmerLength + 1];
-	for (int i = 0; i <= kmerLength; i++) significances[i] = ipow(numSymbols, i);
+	for (size_t i = 0; i <= kmerLength; i++) significances[i] = ipow(numSymbols, i);
     
 	// index is the lexicographic index in the kmerCount array corresponding
 	// to the kmer under the sliding window. -1 indicates that there is no index
@@ -48,7 +49,7 @@ void populateMap(map<char, size_t>& symbolIndexMap, const char* symbols) {
 	// lookup = {char: symbols.index(char) for char in symbols}
 	// lookup.update({char.lower(): symbols.index(char) for char in symbols})
 	size_t numSymbols = strlen(symbols);
-    for (int i = 0; i < numSymbols; i++){
+    for (size_t i = 0; i < numSymbols; i++){
         symbolIndexMap[symbols[i]] = i;
         symbolIndexMap[tolower(symbols[i])] = i;    
     }
