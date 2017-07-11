@@ -11,7 +11,7 @@ CPPFLAGS = -Wall -pedantic -O3 -std=c++0x -shared
 default: $(TARGETS)
 	
 kmers.so:
-	$(CXX) $(CPPFLAGS) $(LDFLAGS)  -Wl,-install_name,kmers.so -o $@ -fPIC $(SOURCES)
+	$(CXX) $(CPPFLAGS) $(LDFLAGS) -o $@ -fPIC $(SOURCES)
 
 .PHONY: clean
 clean:
