@@ -63,7 +63,10 @@ def get_bacteria_id(header):
     id = header.split(' ')[0]
     if is_genbank_id(id):
         return id
-    id = header.split('\t')[1].replace('>',  '')
+    try:
+        id = header.split('\t')[1].replace('>',  '')
+    except:
+        pass
     if is_genbank_id(id):
         return id
 
