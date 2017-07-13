@@ -1,0 +1,11 @@
+# K-mer count file
+# debug:	False
+# file_identifier:	'.fna'
+# input_file:	'empty.fasta'
+# kmer_length:	4
+# output_file:	'empty.kmer'
+# python:	False
+# sample:	None
+# symbols:	'ATGC'
+# verbose:	False
+# 

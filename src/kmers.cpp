@@ -68,9 +68,10 @@ int calculateIndex(const char* kmer, const int kmerLength, map<char, int>& symbo
 	} else {
 		// May use previous window's index to make a quicker calculation
 		// index = (index * num_symbols) % pow(num_symbols, kmer_length) + lookup[sequence[i + kmer_length - 1]]
-		char letter = kmer[kmerLength - 1];
-		if (symbolIndexMap.find(letter) == symbolIndexMap.end()) return -kmerLength;
-		index = (index * numSymbols) % significances[kmerLength] + symbolIndexMap[letter];
+		// char letter = kmer[kmerLength - 1];
+		if (symbolIndexMap.find(kmer[kmerLength - 1]) == symbolIndexMap.end()) return -kmerLength;
+		// index = (index * numSymbols) % significances[kmerLength] + symbolIndexMap[letter];
+		index = ((index % significances[kmerLength - 1]) * numSymbols) + symbolIndexMap[kmer[kmerLength - 1]];
 	}
 	return index;
 }
