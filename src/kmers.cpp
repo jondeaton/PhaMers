@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <map>
+#include <string.h>
 using namespace std;
 
 // Allows for this to be called from Python with CTypes
