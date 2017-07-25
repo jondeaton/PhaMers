@@ -1,7 +1,7 @@
 # LALALALALA MAKEFILE
 CC = gcc
 CFLAGS = -shared
-SOURCES = kmers.cpp
+SOURCES = kmer-counter.cpp
 TARGETS = $(SOURCES:.cpp=.so)
 
 CXX = /usr/bin/g++
@@ -10,7 +10,7 @@ CPPFLAGS = -Wall -pedantic -O3 -std=c++0x -shared
 
 default: $(TARGETS)
 	
-kmers.so:
+kmer-counter.so:
 	$(CXX) $(CPPFLAGS) $(LDFLAGS)  -o $@ -fPIC $(SOURCES)
 
 .PHONY: clean
