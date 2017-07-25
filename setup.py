@@ -10,7 +10,7 @@ setup(
     author_email='jdeaton@stanford.edu',
     url='github.com/jondeaton/PhaMers',
     packages=['phamers'],
-    install_requires=["logging", "dna_features_viewer", "biopython"],
+    install_requires=["numpy", "pandas", "biopython", "scipy", "matplotlib", "sklearn", "logging", "dna_features_viewer"],
     license='Creative Commons Attribution-Noncommercial-Share Alike license',
     long_description=open('README.txt').read(),
 )
