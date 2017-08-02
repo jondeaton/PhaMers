@@ -8,6 +8,7 @@ python kmer.py my_sequences.fasta my_sequences_5mers.csv -k 5
 
 """
 
+import fileIO
 import numpy as np
 import os
 import gzip
@@ -15,7 +16,6 @@ import argparse
 import random
 from Bio import SeqIO
 import logging
-import fileIO
 import ctypes
 import time
 
@@ -31,7 +31,9 @@ DNA = 'ATGC'
 RNA = 'AUGC'
 protein = 'RHKDESTNQCUGPAVILMFYW'
 
-kmer_module_file = "kmers.so"
+kmer_module_file = "kmer-counter.so"
+kmer_module_file = os.path.abspath(kmer_module_file)
+
 try:
     kmer_module = ctypes.CDLL(kmer_module_file)
     kmer_module_ready = True
@@ -41,7 +43,7 @@ except:
         kmer_module = ctypes.CDLL(kmer_module_file)
         kmer_module_ready = True
     except:
-        logger.warning("K-Mer counting module not found. Run \"make\" in PhaMers/src." % kmer_module_file)
+        logger.warning("K-Mer counting module %s not found. Run \"make\" in PhaMers/src." % kmer_module_file)
         kmer_module_ready = False
 
 
