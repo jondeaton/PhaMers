@@ -8,6 +8,7 @@ python kmer.py my_sequences.fasta my_sequences_5mers.csv -k 5
 
 """
 
+import fileIO
 import numpy as np
 import os
 import gzip
@@ -15,7 +16,8 @@ import argparse
 import random
 from Bio import SeqIO
 import logging
-import fileIO
+import ctypes
+import time
 
 __version__ = 1.0
 __author__ = "Jonathan Deaton (jdeaton@stanford.edu)"
@@ -29,6 +31,22 @@ DNA = 'ATGC'
 RNA = 'AUGC'
 protein = 'RHKDESTNQCUGPAVILMFYW'
 
+kmer_module_file = "kmer-counter.so"
+kmer_module_file = os.path.abspath(kmer_module_file)
+
+try:
+    kmer_module = ctypes.CDLL(kmer_module_file)
+    kmer_module_ready = True
+except:
+    try:
+        os.system("make")
+        kmer_module = ctypes.CDLL(kmer_module_file)
+        kmer_module_ready = True
+    except:
+        logger.warning("K-Mer counting module %s not found. Run \"make\" in PhaMers/src." % kmer_module_file)
+        kmer_module_ready = False
+
+
 def count_string(sequence, kmer_length, symbols=DNA, normalize=False):
     """
     k-mer counting function
@@ -39,7 +57,16 @@ def count_string(sequence, kmer_length, symbols=DNA, normalize=False):
     :param verbose: Verbose output
     :return: A numpy array with the k-mer counts as integers or floats
     """
-    if len(symbols) < 10:
+
+    num_symbols = len(symbols)
+
+    if kmer_module_ready:
+        # Counting k-mers using a C++ module (~19x speedup)
+        kmer_count = np.zeros(pow(num_symbols, kmer_length), dtype=int)
+        arr = ctypes.c_void_p(kmer_count.ctypes.data)
+        kmer_module.countKMers(sequence, kmer_length, symbols, arr)
+
+    elif num_symbols < 10:
         # Integer replacement method (may only be used for kmer_length < 10)
         sequence = sequence_to_integers(sequence, symbols)
         num_symbols = len(symbols)
@@ -50,7 +77,6 @@ def count_string(sequence, kmer_length, symbols=DNA, normalize=False):
                 kmer_count[int(integer_kmer, num_symbols)] += 1
     else:
         # Mathematical method (for any k)
-        num_symbols = len(symbols)
         lookup = {char: symbols.index(char) for char in symbols}
         lookup.update({char.lower(): symbols.index(char) for char in symbols})
         kmer_count = np.zeros((1, pow(num_symbols, kmer_length)), dtype=(int, float)[normalize])
@@ -124,7 +150,7 @@ def count_file(input_file, kmer_length, symbols=DNA, normalize=False):
     try:
         ids = fileIO.get_fasta_ids(input_file)
     except IOError:
-        logger.warning("Could not read file: %s" % os.path.basename(input_file))
+        logger.error("Could not read file: %s" % os.path.basename(input_file))
         return None, None
 
     counts = np.zeros((len(ids), pow(len(symbols), kmer_length)), dtype=(int, float)[normalize])
@@ -134,9 +160,12 @@ def count_file(input_file, kmer_length, symbols=DNA, normalize=False):
         f = open(input_file, 'r')
     records = SeqIO.parse(f, 'fasta')
     i = 0
+    tic = time.time()
     for record in records:
         counts[i, :] = count(str(record.seq), kmer_length, symbols=symbols, normalize=normalize)
         i += 1
+    elapsed = time.time() - tic
+    logger.debug("K-mer counting elapsed time: %s seconds" % elapsed)
     return ids, counts
 
 
@@ -296,6 +325,7 @@ if __name__ == '__main__':
     parser.add_argument('-k', '--kmer_length', type=int, default=4, help='Length of kmer to count')
     options_group.add_argument('-s', '--sample', type=int, help='Number of sequences to sample and count')
     options_group.add_argument('-sym', '--symbols', type=str, default=DNA, help='Symbols to use in kmer counting')
+    options_group.add_argument('-python', '--python', action='store_true', help="Use Python only for computation.")
 
     console_options_group = parser.add_argument_group("Console Options")
     console_options_group.add_argument('-v', '--verbose', action='store_true', help='verbose output')
@@ -318,6 +348,9 @@ if __name__ == '__main__':
     else:
         logger.setLevel(logging.WARNING)
         logging.basicConfig(format='[log][%(levelname)s] - %(message)s')
+
+    if (args.python):
+        kmer_module_ready = False
 
     logger.info("Counting k-mers...")
 
