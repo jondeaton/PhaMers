@@ -6,15 +6,13 @@ on the basis of their k-mer frequencies. PhaMers uses basic techniques from
 supervised machine learning with k-mer frequency vectors as a the feature
 representaton. The PhaMers classificaiton algorithm is trained on k-mer
 feature vectors from GenBank and RefSeq.
- 
- predict whether an unidentified DNA sequence is likely that of a phage of not.
 
 This repository also contains utilities to analyze and plot DNA sequences
 to facilitate understanding of metagenomic datasets.
 
-
 ## Installation
-To install the requirements, run the following
+PhaMers requires Python 2.7 as well as some basic packages which
+may be installed by running the following command
 
     python setup.py install
 
@@ -23,12 +21,13 @@ To score DNA sequences using PhaMers, use the following command
 
     python scripts/phamer.py -in $input_dir --data data --debug --equalize_reference
 
-where the variable `$input_dir` is a path to a directory that contains a colleciton
-of fasta files with sequences that will be scored. This will create a directory
+where the variable `$input_dir` is a path to a directory that contains a collection
+of FASTA files with sequences that will be scored. This will create a directory
 called `phamer_output` containing the scores in a file called `phamer_scores.csv`.
-Scores range from -1 to 1 with higehr scored representing more phage-like.
+Scores range from -1 to 1 with higher scores indicating that the sequence
+is more phage-like.
 
-To run further analysis and plotting, run the following command
+To run further analysis and generate plots, run the following command
 
     python scripts/analysis.py -in $input_dir --data data --debug
 
@@ -36,7 +35,7 @@ with the variable `$input_dir` as before.
 
 ## Scripts
 This repository contains quite a few different scripts, which
-are briefly described here:
+are now briefly described:
 
 - phamer.py
     - The main PhaMers scoring funcitonality is contained here. 
