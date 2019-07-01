@@ -19,7 +19,7 @@ may be installed by running the following command
 ## Usage
 To score DNA sequences using PhaMers, use the following command
 
-    python scripts/phamer.py -in $input_dir --data data --debug --equalize_reference
+    python scripts/phamer.py -in $input_dir -data data --debug --equalize_reference
 
 where the variable `$input_dir` is a path to a directory that contains a collection
 of FASTA files with sequences that will be scored. This will create a directory
@@ -29,7 +29,7 @@ is more phage-like.
 
 To run further analysis and generate plots, run the following command
 
-    python scripts/analysis.py -in $input_dir --data data --debug
+    python scripts/analysis.py -in $input_dir -data data --debug
 
 with the variable `$input_dir` as before.
 
