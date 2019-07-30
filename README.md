@@ -14,7 +14,7 @@ to facilitate understanding of metagenomic datasets.
 PhaMers requires Python 2.7 as well as some basic packages which
 may be installed by running the following command
 
-    python setup.py install
+    pip install -r requirements.txt
 
 ## Usage
 To score DNA sequences using PhaMers, use the following command

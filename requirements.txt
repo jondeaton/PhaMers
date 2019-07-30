@@ -1,0 +1,7 @@
+numpy
+matplotlib
+scipy
+scikit-learn
+biopython
+pandas
+dna_features_viewer
